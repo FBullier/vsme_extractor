@@ -246,7 +246,23 @@ Arborescence logique :
 
 ---
 
-## 10) Licence / Auteur / Contact
+## 10) Citer vsme_extractor
+
+Si vous utilisez `vsme_extractor` dans vos recherches, projets ou publications, merci de le citer ainsi :
+
+```bibtex
+@misc{vsme_extractor2026,
+  title={vsme_extractor: Extraction d'indicateurs VSME depuis des rapports PDF},
+  author={François Bullier},
+  year={2026},
+  url={https://github.com/FBullier/vsme_extractor},
+  note={Version 0.1}
+}
+```
+
+En citant `vsme_extractor`, vous aidez d’autres personnes à découvrir et réutiliser ce travail.
+
+## 11) Licence / Auteur / Contact
 
 - Licence : MIT (voir [`LICENCE.md`](LICENCE.md:1)).
 - Auteur : François Bullier
