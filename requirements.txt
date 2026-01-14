@@ -1,0 +1,10 @@
+langchain
+langchain-community
+pypdf
+pandas
+openpyxl
+openai
+python-dotenv
+tiktoken
+chardet
+langdetect

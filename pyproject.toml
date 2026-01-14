@@ -1,0 +1,34 @@
+[project]
+name = "vsme-extractor"
+version = "0.1.0"
+description = "Extraction automatique d'indicateurs VSME depuis rapports PDF"
+requires-python = ">=3.11"
+dependencies = [
+    "openai",
+    "python-dotenv",
+    "pandas",
+    "langchain",
+    "langchain-community",
+    "pypdf",
+    "openpyxl",
+    "tiktoken",
+    "chardet",
+    "langdetect"
+]
+
+[tool.uv]
+managed = true
+
+[project.scripts]
+vsme-extract = "vsme_extractor.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Make package discovery explicit (robust for `pip install .`)
+[tool.setuptools]
+packages = ["vsme_extractor"]
+
+[tool.setuptools.package-data]
+vsme_extractor = ["data/*.csv"]
