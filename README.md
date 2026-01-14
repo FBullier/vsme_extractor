@@ -248,5 +248,5 @@ Arborescence logique :
 
 ## 10) Licence / Auteur / Contact
 
-- Licence : non spécifiée pour le moment (à définir si le projet doit être distribué).
-- Auteur / contact : à compléter selon vos conventions internes.
+- Licence : MIT (voir [`LICENCE.md`](LICENCE.md:1)).
+- Auteur : François Bullier
