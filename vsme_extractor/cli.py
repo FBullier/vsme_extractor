@@ -153,7 +153,12 @@ def main(argv: list[str] | None = None) -> None:
             code_vsme, metric, code_ind = t
             # Préfère `code_vsme` si présent ; sinon fallback sur `Code indicateur`.
             primary = code_vsme or code_ind
-            return (_code_sort_key(primary), _code_sort_key(code_vsme), _code_sort_key(code_ind), metric)
+            return (
+                _code_sort_key(primary),
+                _code_sort_key(code_vsme),
+                _code_sort_key(code_ind),
+                metric,
+            )
 
         items.sort(key=_row_sort_key)
 

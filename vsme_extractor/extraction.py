@@ -10,6 +10,7 @@ from .prompts import EXTRACTION_SYSTEM_PROMPT, build_user_prompt
 
 logger = logging.getLogger(__name__)
 
+
 def extract_value_for_metric(
     llm: LLM,
     metric: str,
@@ -69,20 +70,25 @@ def extract_value_for_metric(
         )
     except Exception:
         logger.debug("JSON parse | status=failed | attempting fallback")
+
         # 1) Best-effort regex extraction for the 3 fields
         def _extract(pattern: str) -> str | None:
             """Extrait un champ via regex (best-effort)."""
             m = re.search(pattern, text, re.S | re.I)
             return m.group(1).strip() if m else None
 
-        valeur = _extract(r'"valeur"\s*:\s*"([^"]*?)"') or _extract(r"'valeur'\s*:\s*'([^']*?)'")
+        valeur = _extract(r'"valeur"\s*:\s*"([^"]*?)"') or _extract(
+            r"'valeur'\s*:\s*'([^']*?)'"
+        )
         unite_ret = (
             _extract(r'"unité"\s*:\s*"([^"]*?)"')
             or _extract(r'"unite"\s*:\s*"([^"]*?)"')
             or _extract(r"'unité'\s*:\s*'([^']*?)'")
             or _extract(r"'unite'\s*:\s*'([^']*?)'")
         )
-        paragraphe = _extract(r'"paragraphe"\s*:\s*"([^"]*?)"') or _extract(r"'paragraphe'\s*:\s*'([^']*?)'")
+        paragraphe = _extract(r'"paragraphe"\s*:\s*"([^"]*?)"') or _extract(
+            r"'paragraphe'\s*:\s*'([^']*?)'"
+        )
 
         extracted = {
             "valeur": (valeur or "NA"),
@@ -125,7 +131,10 @@ def extract_value_for_metric(
                 logger.debug("JSON repair | status=failed")
                 pass
 
-        logger.debug("END extract_value_for_metric | status=fallback | valeur=%s", extracted.get("valeur"))
+        logger.debug(
+            "END extract_value_for_metric | status=fallback | valeur=%s",
+            extracted.get("valeur"),
+        )
         return (
             _normalize(extracted),
             in_tokens,

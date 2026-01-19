@@ -11,6 +11,7 @@ Règles:
 - Respecte l'unité cible si possible; sinon, renvoie l'unité telle que publiée.
 """
 
+
 def build_user_prompt(metric: str, unite: str, context: str) -> str:
     """Construit le prompt utilisateur envoyé au LLM pour une métrique donnée."""
     return f"""Contexte PDF (extraits) :

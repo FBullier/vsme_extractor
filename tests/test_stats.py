@@ -21,14 +21,34 @@ def test_count_filled_indicators_counts_and_sorts(tmp_path: Path) -> None:
     # Build 2 minimal .vsme.xlsx files.
     df1 = pd.DataFrame(
         [
-            {"Code indicateur": "B1", "Thématique": "T", "Métrique": "M1", "Valeur": "123"},
-            {"Code indicateur": "B10", "Thématique": "T", "Métrique": "M10", "Valeur": "NA"},
+            {
+                "Code indicateur": "B1",
+                "Thématique": "T",
+                "Métrique": "M1",
+                "Valeur": "123",
+            },
+            {
+                "Code indicateur": "B10",
+                "Thématique": "T",
+                "Métrique": "M10",
+                "Valeur": "NA",
+            },
         ]
     )
     df2 = pd.DataFrame(
         [
-            {"Code indicateur": "B1", "Thématique": "T", "Métrique": "M1", "Valeur": ""},
-            {"Code indicateur": "B10", "Thématique": "T", "Métrique": "M10", "Valeur": "999"},
+            {
+                "Code indicateur": "B1",
+                "Thématique": "T",
+                "Métrique": "M1",
+                "Valeur": "",
+            },
+            {
+                "Code indicateur": "B10",
+                "Thématique": "T",
+                "Métrique": "M10",
+                "Valeur": "999",
+            },
         ]
     )
 
@@ -57,7 +77,9 @@ def test_count_filled_indicators_raises_when_empty_dir(tmp_path: Path) -> None:
         count_filled_indicators(tmp_path)
 
 
-def test_count_filled_indicators_skips_files_with_missing_columns(tmp_path: Path) -> None:
+def test_count_filled_indicators_skips_files_with_missing_columns(
+    tmp_path: Path,
+) -> None:
     """Les fichiers aux colonnes manquantes sont ignorés ; les fichiers valides restent traités."""
     # File missing required columns should be skipped and not crash.
     bad = pd.DataFrame([{"foo": 1}])

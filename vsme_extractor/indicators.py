@@ -44,7 +44,9 @@ def get_indicators(
                     "La variable d’environnement VSM_INDICATORS_PATH est définie mais le fichier n’existe pas : %s. Utilisation du CSV packagé en fallback.",
                     env_path,
                 )
-                resource = resources.files(PACKAGE_DATA_MODULE) / "data" / PACKAGE_CSV_NAME
+                resource = (
+                    resources.files(PACKAGE_DATA_MODULE) / "data" / PACKAGE_CSV_NAME
+                )
                 with resources.as_file(resource) as p:
                     path = Path(p)
         else:
@@ -79,7 +81,9 @@ def get_indicators(
                     path,
                 )
             else:
-                codes = [c.strip() for c in re.split(r"[\s,;]+", codes_raw) if c.strip()]
+                codes = [
+                    c.strip() for c in re.split(r"[\s,;]+", codes_raw) if c.strip()
+                ]
                 df = df[df["code_vsme"].astype(str).isin(codes)]
         else:
             if "defaut" in df.columns:

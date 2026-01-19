@@ -25,6 +25,12 @@ dev = [
     "pytest>=8.0.0",
     "ruff>=0.14.0",
 ]
+quality = [
+    "pre-commit>=3.7.0",
+    "pyright>=1.1.390",
+    "pip-audit>=2.7.0",
+]
+
 
 [tool.uv]
 managed = true

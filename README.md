@@ -53,6 +53,11 @@ pip install ".[streamlit]"
 pip install ".[dev]"
 ```
 
+- Outils qualité (pre-commit, pyright, pip-audit) :
+```bash
+pip install ".[quality]"
+```
+
 > Remarque : ce repo conserve aussi [`requirements.txt`](requirements.txt:1). Vous pouvez continuer à l’utiliser si vous le souhaitez (duplication acceptée).
 
 ### Option B — via requirements.txt (si vous préférez)
@@ -270,6 +275,24 @@ Arborescence logique :
 
 Une mini-app Streamlit est disponible dans [`streamlit_app/`](streamlit_app/README.md:1).
 Elle permet d'uploader un PDF, de choisir des indicateurs (`code_vsme`) et de lancer l'extraction.
+
+### Qualité / checks (optionnel)
+
+- Typage (pyright) :
+  ```bash
+  pyright
+  ```
+
+- Audit dépendances (pip-audit) :
+  ```bash
+  pip-audit
+  ```
+
+- Hooks git (pre-commit) :
+  ```bash
+  pre-commit install
+  pre-commit run -a
+  ```
 
 ---
 

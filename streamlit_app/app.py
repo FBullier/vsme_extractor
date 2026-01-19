@@ -76,9 +76,17 @@ Cette application Streamlit permet :
         st.error("Le CSV d'indicateurs ne contient pas la colonne 'code_vsme'.")
         return
 
-    df_ind["label"] = df_ind["code_vsme"].astype(str) + " — " + df_ind["Métrique"].astype(str)
+    df_ind["label"] = (
+        df_ind["code_vsme"].astype(str) + " — " + df_ind["Métrique"].astype(str)
+    )
 
-    default_codes = df_ind[df_ind.get("defaut").astype(str).str.strip().eq("1")]["code_vsme"].astype(str).tolist() if "defaut" in df_ind.columns else []
+    default_codes = (
+        df_ind[df_ind.get("defaut").astype(str).str.strip().eq("1")]["code_vsme"]
+        .astype(str)
+        .tolist()
+        if "defaut" in df_ind.columns
+        else []
+    )
 
     col_left, col_right = st.columns([2, 1])
 
@@ -86,13 +94,19 @@ Cette application Streamlit permet :
         selected_labels = st.multiselect(
             "Indicateurs à extraire (laisser vide = indicateurs par défaut `defaut=1`)",
             options=df_ind["label"].tolist(),
-            default=[lbl for lbl in df_ind["label"].tolist() if lbl.split(" — ", 1)[0] in set(default_codes)],
+            default=[
+                lbl
+                for lbl in df_ind["label"].tolist()
+                if lbl.split(" — ", 1)[0] in set(default_codes)
+            ],
         )
 
     with col_right:
         st.caption("Paramètres")
         retrieval_method = st.selectbox("Retrieval", options=["count", "bm25"], index=0)
-        top_k = st.number_input("Top-k extraits", min_value=1, max_value=12, value=6, step=1)
+        top_k = st.number_input(
+            "Top-k extraits", min_value=1, max_value=12, value=6, step=1
+        )
 
     selected_codes = [lbl.split(" — ", 1)[0].strip() for lbl in selected_labels]
 
@@ -106,7 +120,9 @@ Cette application Streamlit permet :
             return
 
         if not os.getenv("SCW_API_KEY"):
-            st.error("SCW_API_KEY manquant. Définis-le dans ton environnement ou ton .env.")
+            st.error(
+                "SCW_API_KEY manquant. Définis-le dans ton environnement ou ton .env."
+            )
             return
 
         # Applique la sélection via env var (compatible avec le pipeline existant).
@@ -122,7 +138,9 @@ Cette application Streamlit permet :
             tmp_path = tmp.name
 
         st.info(f"PDF chargé : {uploaded.name}")
-        st.info(f"Indicateurs sélectionnés : {len(selected_codes) if selected_codes else 'défaut (defaut=1)'}")
+        st.info(
+            f"Indicateurs sélectionnés : {len(selected_codes) if selected_codes else 'défaut (defaut=1)'}"
+        )
 
         with st.spinner("Extraction en cours…"):
             extractor = get_extractor()

@@ -1,0 +1,19 @@
+{
+  "include": [
+    "vsme_extractor",
+    "tests",
+    "streamlit_app",
+    "exemples",
+    "main.py"
+  ],
+  "exclude": [
+    "**/.venv",
+    "**/build",
+    "**/dist",
+    "**/__pycache__"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": false
+}
+

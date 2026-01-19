@@ -27,7 +27,9 @@ def load_llm_config() -> LLMConfig:
     """
     api_key = os.getenv("SCW_API_KEY")
     if not api_key:
-        raise RuntimeError("SCW_API_KEY manquant. Définis-le dans ton environnement ou ton .env.")
+        raise RuntimeError(
+            "SCW_API_KEY manquant. Définis-le dans ton environnement ou ton .env."
+        )
 
     base_url = os.getenv(
         "SCW_BASE_URL",

@@ -116,9 +116,7 @@ def count_filled_indicators(results_dir: str | Path) -> pd.DataFrame:
 
     # Tri naturel : B1 < B2 < ... < B9 < B10 < ...
     result_df = result_df.sort_values(
-        by=["Index tri", "Métrique"],
-        ascending=[True, True],
-        ignore_index=True
+        by=["Index tri", "Métrique"], ascending=[True, True], ignore_index=True
     )
 
     # Retirer la colonne technique

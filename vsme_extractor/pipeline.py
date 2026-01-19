@@ -96,13 +96,17 @@ class VSMExtractor:
                 ok_text,
             )
         except Exception:
-            logger.exception("LLM check failed | model=%s | base_url=%s", self.config.model, self.config.base_url)
+            logger.exception(
+                "LLM check failed | model=%s | base_url=%s",
+                self.config.model,
+                self.config.base_url,
+            )
             raise
 
         self.top_k_snippets = top_k_snippets
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.retrieval_method = retrieval_method
+        self.retrieval_method: Literal["count", "bm25"] = retrieval_method
 
         # Cache de traduction des mots-clés : (lang, keywords) -> translated_keywords
         self._keywords_translation_cache: Dict[tuple[str, str], str] = {}
@@ -110,7 +114,11 @@ class VSMExtractor:
     def extract_from_pdf(self, pdf_path: str) -> Tuple[pd.DataFrame, ExtractionStats]:
         """Extrait les indicateurs d'un PDF et retourne (DataFrame, stats)."""
         t_total0 = time.perf_counter()
-        logger.info("START extract_from_pdf | pdf_path=%s | retrieval_method=%s", pdf_path, self.retrieval_method)
+        logger.info(
+            "START extract_from_pdf | pdf_path=%s | retrieval_method=%s",
+            pdf_path,
+            self.retrieval_method,
+        )
 
         t0 = time.perf_counter()
         pages, page_texts, full_text = load_pdf(pdf_path)
@@ -126,7 +134,11 @@ class VSMExtractor:
         t0 = time.perf_counter()
         indicateurs = get_indicators()
         t_indicators = time.perf_counter() - t0
-        logger.info("Step get_indicators | duration_s=%.3f | count=%s", t_indicators, len(indicateurs))
+        logger.info(
+            "Step get_indicators | duration_s=%.3f | count=%s",
+            t_indicators,
+            len(indicateurs),
+        )
 
         # Détecte la langue du document
         t0 = time.perf_counter()
@@ -162,14 +174,20 @@ class VSMExtractor:
                 metric,
                 unite,
             )
-            logger.debug("Indicator details | code=%s | metric=%s | unit=%s", code, metric, unite)
+            logger.debug(
+                "Indicator details | code=%s | metric=%s | unit=%s", code, metric, unite
+            )
 
             # Traduit les mots-clés si besoin (avec cache par (lang, keywords))
             if lang not in ["en", "fr"] and keywords:
                 cache_key = (lang, str(keywords))
                 translated = self._keywords_translation_cache.get(cache_key)
                 if translated is None:
-                    logger.debug("Keywords translation | cache=miss | lang=%s | keywords=%s", lang, keywords)
+                    logger.debug(
+                        "Keywords translation | cache=miss | lang=%s | keywords=%s",
+                        lang,
+                        keywords,
+                    )
                     promt_conv_lg = (
                         f"Traduit les mots clés de la chaine suivante en langue ISO {lang} : {keywords}\n"
                         "Répond au format : mot1,mot2,mot3,.. \n"
@@ -201,14 +219,18 @@ class VSMExtractor:
 
             # Sinon, fallback : utiliser le début du document
             if not ctx_selected:
-                logger.debug("Fallback retrieval | utilisation de l'en-tête du document")
+                logger.debug(
+                    "Fallback retrieval | utilisation de l'en-tête du document"
+                )
                 ctx_selected = [full_text[:10000]]
 
             # Contexte réellement envoyé au LLM (limité à 6 extraits côté prompt)
             ctx_used = list(ctx_selected[:6])
             context_joined = "\n\n---\n\n".join(ctx_used)
             chars_context = len(context_joined)
-            est_tokens_context = max(1, int(round(chars_context / 4)))  # heuristique ~4 chars/token
+            est_tokens_context = max(
+                1, int(round(chars_context / 4))
+            )  # heuristique ~4 chars/token
 
             logger.info(
                 "Indicator context %s/%s | code=%s | snippets_selected=%s | snippets_used=%s | chars_context=%s | est_tokens_context=%s",
@@ -254,8 +276,8 @@ class VSMExtractor:
             results.append(
                 {
                     "Code indicateur": row["Code indicateur"],
-                    "Thématique":row["Thématique"],
-                    "Métrique":row["Métrique"],
+                    "Thématique": row["Thématique"],
+                    "Métrique": row["Métrique"],
                     "Valeur": data["valeur"],
                     "Unité extraite": data["unité"],
                     "Paragraphe source": data["paragraphe"],
@@ -263,7 +285,11 @@ class VSMExtractor:
             )
 
         t_loop = time.perf_counter() - t0
-        logger.info("Step loop_indicators | duration_s=%.3f | indicators=%s", t_loop, len(indicateurs))
+        logger.info(
+            "Step loop_indicators | duration_s=%.3f | indicators=%s",
+            t_loop,
+            len(indicateurs),
+        )
 
         # Calcule le coût total estimé (à partir des tokens)
         total_cost = (

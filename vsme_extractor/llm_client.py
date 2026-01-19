@@ -78,7 +78,9 @@ def _configure_prompts_logger() -> bool:
         return True
 
     PROMPTS_LOGGER.setLevel(logging.INFO)
-    PROMPTS_LOGGER.propagate = False  # critique : ne doit pas "fuiter" vers les handlers du root
+    PROMPTS_LOGGER.propagate = (
+        False  # critique : ne doit pas "fuiter" vers les handlers du root
+    )
 
     # Garantit l'idempotence si appelé plusieurs fois
     for h in list(PROMPTS_LOGGER.handlers):
@@ -128,24 +130,24 @@ def _safe_get_usage(resp: Any) -> Optional[Dict[str, int]]:
     if usage is not None:
         if hasattr(usage, "prompt_tokens"):
             return dict(
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
-                total_tokens=usage.total_tokens,
+                prompt_tokens=int(getattr(usage, "prompt_tokens", 0) or 0),
+                completion_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
+                total_tokens=int(getattr(usage, "total_tokens", 0) or 0),
             )
         if isinstance(usage, Mapping):
             return dict(
-                prompt_tokens=usage.get("prompt_tokens"),
-                completion_tokens=usage.get("completion_tokens"),
-                total_tokens=usage.get("total_tokens"),
+                prompt_tokens=int(usage.get("prompt_tokens") or 0),
+                completion_tokens=int(usage.get("completion_tokens") or 0),
+                total_tokens=int(usage.get("total_tokens") or 0),
             )
     try:
         data = resp.model_dump()
         if "usage" in data:
             u = data["usage"]
             return dict(
-                prompt_tokens=u.get("prompt_tokens"),
-                completion_tokens=u.get("completion_tokens"),
-                total_tokens=u.get("total_tokens"),
+                prompt_tokens=int(u.get("prompt_tokens") or 0),
+                completion_tokens=int(u.get("completion_tokens") or 0),
+                total_tokens=int(u.get("total_tokens") or 0),
             )
     except Exception:
         pass
@@ -179,6 +181,7 @@ def _usage_from_obj(u):
         }
     return None
 
+
 class LLM:
     """Client LLM OpenAI-compatible avec estimation de tokens et coût."""
 
@@ -198,7 +201,7 @@ class LLM:
         system_prompt: Optional[str] = None,
     ):
         """Effectue un appel non-stream au LLM et renvoie texte + métriques de tokens/coût."""
-        
+
         extra_body = {"reasoning": {"effort": "low"}}  # ou "medium"/"high"
         system = system_prompt or self.config.system_prompt
 
@@ -226,11 +229,12 @@ class LLM:
 
         choice0 = resp.choices[0]
         msg = getattr(choice0, "message", None) or {}
-        if hasattr(msg, "content"):
-            text = msg.content
-        elif isinstance(msg, Mapping):
+        if isinstance(msg, Mapping):
             text = msg.get("content") or msg.get("text") or ""
         else:
+            text = getattr(msg, "content", "") or ""
+
+        if not text:
             try:
                 data = resp.model_dump()
                 text = data["choices"][0]["message"]["content"]
@@ -271,14 +275,13 @@ class LLM:
 
     # Variante streaming : écrit les tokens au fil de l'eau (optionnel) et retourne les métriques d'usage
     def invoke_stream(
-            self, 
-            question: str,
-            temperature: float = 0.2,
-            max_tokens: int = 512, 
-            system_prompt: Optional[str] = None,
-            print_tokens=True
-        ):
-
+        self,
+        question: str,
+        temperature: float = 0.2,
+        max_tokens: int = 512,
+        system_prompt: Optional[str] = None,
+        print_tokens=True,
+    ):
         """
         Stream la réponse sur stdout au fur et à mesure et retourne :
 
@@ -315,7 +318,9 @@ class LLM:
             top_p=0.1,
             presence_penalty=0,
             stream=True,
-            stream_options={"include_usage": True},  # si supporté, ajoute un dernier chunk contenant l'usage
+            stream_options={
+                "include_usage": True
+            },  # si supporté, ajoute un dernier chunk contenant l'usage
             extra_body=extra_body,  # spécifique au provider
         )
 
@@ -365,7 +370,9 @@ class LLM:
         if usage_final:
             prompt_tokens = int(usage_final["prompt_tokens"] or 0)
             completion_tokens = int(usage_final["completion_tokens"] or 0)
-            total_tokens = int(usage_final.get("total_tokens", prompt_tokens + completion_tokens))
+            total_tokens = int(
+                usage_final.get("total_tokens", prompt_tokens + completion_tokens)
+            )
 
             used_api_usage = True
 

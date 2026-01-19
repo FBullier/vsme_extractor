@@ -10,9 +10,7 @@ from typing import Optional
 
 
 # Format “audit-friendly” : inclut l’emplacement dans le code (filename:lineno:function)
-DEFAULT_LOG_FORMAT = (
-    "%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d:%(funcName)s | %(message)s"
-)
+DEFAULT_LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d:%(funcName)s | %(message)s"
 
 
 class SizedTimedRotatingFileHandler(TimedRotatingFileHandler):
@@ -108,7 +106,7 @@ class SizedTimedRotatingFileHandler(TimedRotatingFileHandler):
             try:
                 self.stream.close()
             finally:
-                self.stream = None
+                self.stream = None  # type: ignore[assignment]
 
         current_time = int(time.time())
         t = self.rolloverAt - self.interval
@@ -236,7 +234,9 @@ def configure_logging(
 
     # Garantie forte : hors DEBUG, empêcher les lignes INFO de httpx/httpcore de “fuiter” dans les handlers.
     if level_value > logging.DEBUG:
-        noise_filter = _MinLevelByLoggerPrefixFilter(("httpx", "httpcore"), logging.WARNING)
+        noise_filter = _MinLevelByLoggerPrefixFilter(
+            ("httpx", "httpcore"), logging.WARNING
+        )
         for h in list(root.handlers):
             h.addFilter(noise_filter)
 
