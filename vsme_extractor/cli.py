@@ -86,9 +86,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     """Entrée CLI installable (console_scripts)."""
-    # Load `.env` (searching from current working directory upward) and force override.
-    # This avoids surprising situations where a previously exported (possibly empty)
-    # variable masks the value set in `.env`.
+    # Charge `.env` (en recherchant depuis le répertoire courant vers les parents)
+    # et force l'override.
+    # Cela évite les cas surprenants où une variable déjà exportée (parfois vide)
+    # masque la valeur définie dans `.env`.
     dotenv_path = find_dotenv(usecwd=True)
     dotenv_loaded = load_dotenv(dotenv_path, override=True)
 
@@ -103,8 +104,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     logger = logging.getLogger(__name__)
 
-    # Diagnostics: confirm which .env was found/loaded and what indicator-filtering vars look like.
-    # (Do NOT log secrets.)
+    # Diagnostic : confirme quel `.env` a été trouvé/chargé et l'état des variables
+    # de filtrage des indicateurs.
+    # (Ne jamais logger de secrets.)
     logger.info(
         "dotenv | found=%s | loaded=%s | cwd=%s",
         dotenv_path or None,
@@ -131,14 +133,14 @@ def main(argv: list[str] | None = None) -> None:
             items.append((code_vsme, metric, code_ind))
 
         def _code_sort_key(code: str) -> tuple:
-            """Sort key for codes like B1, B10, C8_1.
+            """Clé de tri pour des codes du type B1, B10, C8_1.
 
-            Order: letter(s) alpha, then numeric part as int, then optional suffix index as int.
+            Ordre : lettre(s), puis partie numérique (int), puis suffixe optionnel `_indice` (int).
             """
             s = (code or "").strip()
             m = re.match(r"^([A-Za-z]+)(\d+)(?:_(\d+))?$", s)
             if not m:
-                # Put non-matching codes at the end (lexical fallback)
+                # Met les codes non conformes à la fin (fallback lexical)
                 return ("~", 10**9, 10**9, s)
             letters = m.group(1).upper()
             num = int(m.group(2))
@@ -147,7 +149,7 @@ def main(argv: list[str] | None = None) -> None:
 
         def _row_sort_key(t: tuple[str, str, str]) -> tuple:
             code_vsme, metric, code_ind = t
-            # Prefer code_vsme when present; fallback to Code indicateur.
+            # Préfère `code_vsme` si présent ; sinon fallback sur `Code indicateur`.
             primary = code_vsme or code_ind
             return (_code_sort_key(primary), _code_sort_key(code_vsme), _code_sort_key(code_ind), metric)
 

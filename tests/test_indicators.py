@@ -1,8 +1,10 @@
-"""Tests for indicator loading and filtering.
+"""Tests du chargement et du filtrage des indicateurs.
 
-Focus: deterministic logic in [`vsme_extractor.indicators.get_indicators()`](vsme_extractor/indicators.py:20).
+Focus : logique déterministe de [`vsme_extractor.indicators.get_indicators()`](vsme_extractor/indicators.py:20).
 
-We intentionally avoid any network calls and only validate CSV parsing + environment-driven filtering.
+On évite volontairement tout appel réseau et on valide uniquement :
+- le parsing du CSV
+- le filtrage piloté par les variables d'environnement
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from vsme_extractor.indicators import get_indicators
 
 
 def _write_csv(path: Path) -> None:
-    """Write a minimal indicator CSV to `path` for unit tests."""
+    """Écrit un CSV minimal d'indicateurs dans `path` pour les tests."""
     # Minimal semicolon-separated CSV compatible with vsme_extractor.indicators.get_indicators()
     path.write_text(
         """;Code indicateur;Thématique;Métrique;Unité / Détail;Mots clés;Keywords;code_vsme;defaut
@@ -28,7 +30,7 @@ def _write_csv(path: Path) -> None:
 
 
 def test_get_indicators_default_filter_defaut_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """When no explicit list is provided, default behaviour is `defaut == 1` filtering."""
+    """Sans liste explicite, le comportement par défaut est le filtrage `defaut == 1`."""
     csv_path = tmp_path / "indicators.csv"
     _write_csv(csv_path)
 
@@ -39,7 +41,7 @@ def test_get_indicators_default_filter_defaut_1(tmp_path: Path, monkeypatch: pyt
 
 
 def test_get_indicators_filter_by_code_vsme_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """When VSME_CODE_VSME_LIST is set, it should override `defaut` filtering."""
+    """Si `VSME_CODE_VSME_LIST` est défini, il doit primer sur le filtrage `defaut`."""
     csv_path = tmp_path / "indicators.csv"
     _write_csv(csv_path)
 
@@ -51,7 +53,7 @@ def test_get_indicators_filter_by_code_vsme_list(tmp_path: Path, monkeypatch: py
 
 
 def test_get_indicators_apply_env_filter_false_returns_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """`apply_env_filter=False` should bypass all `.env`-based filtering."""
+    """`apply_env_filter=False` désactive tous les filtres pilotés par `.env`."""
     csv_path = tmp_path / "indicators.csv"
     _write_csv(csv_path)
 
@@ -73,7 +75,7 @@ def test_get_indicators_apply_env_filter_false_returns_all(tmp_path: Path, monke
 def test_get_indicators_code_list_parsing_separators(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, codes_raw: str
 ) -> None:
-    """The list parser accepts common separators: spaces, commas, semicolons."""
+    """Le parsing de liste accepte des séparateurs courants : espace, virgule, point-virgule."""
     csv_path = tmp_path / "indicators.csv"
     _write_csv(csv_path)
 
@@ -83,7 +85,7 @@ def test_get_indicators_code_list_parsing_separators(
 
 
 def test_get_indicators_when_code_vsme_missing_does_not_filter_by_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """If the CSV lacks `code_vsme`, we keep rows unfiltered (and do not crash)."""
+    """Si le CSV n'a pas de colonne `code_vsme`, on ne filtre pas (et on ne plante pas)."""
     # If VSME_CODE_VSME_LIST is set but the CSV has no `code_vsme` column,
     # we should not crash and should return unfiltered rows.
     csv_path = tmp_path / "indicators_no_code_vsme.csv"
@@ -102,7 +104,7 @@ def test_get_indicators_when_code_vsme_missing_does_not_filter_by_list(tmp_path:
 
 
 def test_get_indicators_when_defaut_missing_and_no_list_returns_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """If neither list nor `defaut` column exist, no filtering can apply."""
+    """Sans liste et sans colonne `defaut`, aucun filtrage ne peut s'appliquer."""
     csv_path = tmp_path / "indicators_no_defaut.csv"
     csv_path.write_text(
         """;Code indicateur;Thématique;Métrique;Unité / Détail;Mots clés;Keywords;code_vsme
@@ -120,7 +122,7 @@ def test_get_indicators_when_defaut_missing_and_no_list_returns_all(tmp_path: Pa
 
 @pytest.mark.parametrize("defaut_value", ["1", " 1 ", 1])
 def test_get_indicators_defaut_accepts_string_or_int(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defaut_value) -> None:
-    """`defaut` values may be typed as string or int depending on CSV parsing."""
+    """`defaut` peut être parsé en chaîne ou en int selon la lecture CSV."""
     csv_path = tmp_path / "indicators_defaut_types.csv"
     # Write with pandas-like loose typing behavior (string/int). For simplicity use CSV text.
     csv_path.write_text(

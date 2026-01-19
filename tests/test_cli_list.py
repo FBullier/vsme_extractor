@@ -1,9 +1,10 @@
-"""Tests for CLI listing options.
+"""Tests des options de listing de la CLI.
 
-Focus: deterministic CLI behaviour in [`vsme_extractor.cli.main()`](vsme_extractor/cli.py:87)
-when using `--list-current-indicators` and `--list-all-indicators`.
+Focus : comportement déterministe de [`vsme_extractor.cli.main()`](vsme_extractor/cli.py:87)
+pour `--list-current-indicators` et `--list-all-indicators`.
 
-We monkeypatch dotenv loading and indicator retrieval to avoid depending on a local `.env` file.
+On monkeypatch le chargement dotenv et le chargement d'indicateurs pour éviter toute dépendance
+à un fichier `.env` local.
 """
 
 from __future__ import annotations
@@ -14,8 +15,8 @@ import vsme_extractor.cli as cli
 
 
 def test_cli_list_all_indicators_is_naturally_sorted(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    """The listing should use a natural sort (B9 before B10, etc.)."""
-    # Avoid reading any real .env during tests.
+    """Le listing doit utiliser un tri naturel (B9 avant B10, etc.)."""
+    # Évite de lire un `.env` réel pendant les tests.
     monkeypatch.setattr(cli, "find_dotenv", lambda *args, **kwargs: "")
     monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
 
@@ -39,7 +40,7 @@ def test_cli_list_all_indicators_is_naturally_sorted(monkeypatch: pytest.MonkeyP
 
 
 def test_cli_list_current_indicators_passes_apply_env_filter_true(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    """`--list-current-indicators` must request env filtering from get_indicators()."""
+    """`--list-current-indicators` doit demander le filtrage env à `get_indicators()`."""
     monkeypatch.setattr(cli, "find_dotenv", lambda *args, **kwargs: "")
     monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
 
@@ -57,7 +58,7 @@ def test_cli_list_current_indicators_passes_apply_env_filter_true(monkeypatch: p
 
 
 def test_cli_mutually_exclusive_list_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The two list flags are mutually exclusive (argparse should exit)."""
+    """Les deux options de listing sont exclusives (argparse doit terminer)."""
     monkeypatch.setattr(cli, "find_dotenv", lambda *args, **kwargs: "")
     monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
 
@@ -77,7 +78,7 @@ def test_cli_mutually_exclusive_list_flags(monkeypatch: pytest.MonkeyPatch) -> N
 def test_cli_natural_sort_various_codes(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], codes: list[str], expected: list[str]
 ) -> None:
-    """Natural sort should work across multiple patterns: multi-letter, suffix indices, etc."""
+    """Le tri naturel doit fonctionner sur plusieurs patterns : multi-lettres, suffixes, etc."""
     monkeypatch.setattr(cli, "find_dotenv", lambda *args, **kwargs: "")
     monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
 
