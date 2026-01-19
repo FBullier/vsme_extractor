@@ -55,7 +55,7 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 
 1. La CLI appelle [`VSMExtractor.extract_from_pdf()`](vsme_extractor/pipeline.py:72)
 2. Le PDF est chargé via [`load_pdf()`](vsme_extractor/pdf_loader.py:8) → `page_texts` + `full_text`
-3. La liste d’indicateurs est chargée via [`get_indicators()`](vsme_extractor/indicators.py:17)
+3. La liste d’indicateurs est chargée via [`get_indicators()`](vsme_extractor/indicators.py:20)
 4. La langue du document est détectée via [`detect_document_language()`](vsme_extractor/pipeline.py:35)
    - `langdetect` est initialisé avec un seed global pour être déterministe.
 5. Pour chaque indicateur :
@@ -118,10 +118,11 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
   Retrieval “lexical” simple (comptage d’occurrences de tokens) via [`find_relevant_snippets()`](vsme_extractor/retrieval.py:5).
 
 - [`vsme_extractor/indicators.py`](vsme_extractor/indicators.py:1)  
-  Chargement de la liste des indicateurs via [`get_indicators()`](vsme_extractor/indicators.py:17) :
+  Chargement de la liste des indicateurs via [`get_indicators()`](vsme_extractor/indicators.py:20) :
   - possibilité de surcharger le CSV via variable d’environnement
   - fallback sur une ressource packagée du projet
   - détection d’encodage (chardet) avant lecture
+  - filtrage optionnel par `code_vsme` via `VSME_CODE_VSME_LIST` (sinon fallback sur `defaut == 1`)
 
 - [`vsme_extractor/pipeline.py`](vsme_extractor/pipeline.py:1)  
   Orchestrateur principal :

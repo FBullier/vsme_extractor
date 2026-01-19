@@ -67,7 +67,9 @@ Variables principales :
 - `SCW_MODEL_NAME` : nom du modèle (défaut : `gpt-oss-120b`).
 - `VSM_INPUT_COST_EUR` : coût €/million de tokens en entrée (défaut : `0.15`).
 - `VSM_OUTPUT_COST_EUR` : coût €/million de tokens en sortie (défaut : `0.60`).
-- `VSM_INDICATORS_PATH` : chemin optionnel vers un CSV d’indicateurs (sinon fallback vers le CSV packagé dans le package).
+- `VSM_INDICATORS_PATH` : chemin optionnel vers un CSV d’indicateurs (sinon fallback vers le CSV packagé, par défaut [`vsme_extractor/data/indicateurs_vsme.csv`](vsme_extractor/data/indicateurs_vsme.csv:1)).
+- `VSME_CODE_VSME_LIST` : liste optionnelle de `code_vsme` à extraire (séparateurs acceptés : virgule, point-virgule, espaces).
+  - si `VSME_CODE_VSME_LIST` est vide/absent : l’extracteur prend par défaut les lignes dont `defaut == 1`.
 
 Variables de logging (optionnelles, “opt-in”, utilisées par la CLI et les exemples) :
 
@@ -101,6 +103,11 @@ VSM_OUTPUT_COST_EUR=0.60
 
 # CSV indicateurs (optionnel)
 # VSM_INDICATORS_PATH=/chemin/vers/indicateurs.csv
+
+# Filtrage indicateurs (optionnel)
+# Exemple: VSME_CODE_VSME_LIST=B3_1,B3_2,C1_1
+# Si vide/absent: fallback sur `defaut == 1`
+# VSME_CODE_VSME_LIST=
 
 # Logs applicatifs (audit “normal”)
 SME_LOG_LEVEL=INFO
