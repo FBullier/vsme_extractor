@@ -39,6 +39,20 @@ source .venv/bin/activate
 pip install .
 ```
 
+### Installation avec options (extras)
+
+Le projet expose des dépendances optionnelles via [`pyproject.toml`](pyproject.toml:19) :
+
+- Avec l'app Streamlit :
+```bash
+pip install ".[streamlit]"
+```
+
+- Dépendances de dev (tests/lint) :
+```bash
+pip install ".[dev]"
+```
+
 > Remarque : ce repo conserve aussi [`requirements.txt`](requirements.txt:1). Vous pouvez continuer à l’utiliser si vous le souhaitez (duplication acceptée).
 
 ### Option B — via requirements.txt (si vous préférez)

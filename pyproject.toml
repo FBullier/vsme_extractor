@@ -13,7 +13,17 @@ dependencies = [
     "openpyxl",
     "tiktoken",
     "chardet",
-    "langdetect"
+ "langdetect"
+]
+
+[project.optional-dependencies]
+# Dépendances optionnelles (installation à la demande)
+streamlit = [
+    "streamlit>=1.34.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.14.0",
 ]
 
 [tool.uv]

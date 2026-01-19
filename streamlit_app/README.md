@@ -11,8 +11,8 @@ Cette mini-app permet :
 1) Installer les dépendances :
 
 ```bash
-pip install -r requirements.txt
-pip install -r requirements-streamlit.txt
+pip install .
+pip install ".[streamlit]"
 ```
 
 2) Définir la config (clé Scaleway, etc.) dans [`.env`](../.env:1).
@@ -22,4 +22,3 @@ pip install -r requirements-streamlit.txt
 ```bash
 streamlit run streamlit_app/app.py
 ```
-
