@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import pandas as pd
 
-from vsme_extractor.stats import count_filled_indicators
+from vsme_extractor.stats import _is_filled, count_filled_indicators
 
 
 def test_count_filled_indicators_counts_and_sorts(tmp_path: Path) -> None:
@@ -39,3 +40,47 @@ def test_count_filled_indicators_counts_and_sorts(tmp_path: Path) -> None:
     # Natural sort by numeric part: B1 should come before B10
     assert out["Code indicateur"].tolist()[0] == "B1"
 
+
+def test_count_filled_indicators_raises_when_empty_dir(tmp_path: Path) -> None:
+    # No *.vsme.xlsx files
+    with pytest.raises(FileNotFoundError):
+        count_filled_indicators(tmp_path)
+
+
+def test_count_filled_indicators_skips_files_with_missing_columns(tmp_path: Path) -> None:
+    # File missing required columns should be skipped and not crash.
+    bad = pd.DataFrame([{"foo": 1}])
+    bad_path = tmp_path / "bad.vsme.xlsx"
+    bad.to_excel(bad_path, index=False)
+
+    good = pd.DataFrame(
+        [{"Code indicateur": "B2", "Thématique": "T", "Métrique": "M", "Valeur": "1"}]
+    )
+    good_path = tmp_path / "good.vsme.xlsx"
+    good.to_excel(good_path, index=False)
+
+    out = count_filled_indicators(tmp_path)
+    assert out["Code indicateur"].tolist() == ["B2"]
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("123", True),
+        (" 123 ", True),
+        ("0", True),
+        ("", False),
+        ("   ", False),
+        ("NA", False),
+        ("n/a", False),
+        ("None", False),
+        ("null", False),
+        ("NaN", False),
+        (None, False),
+        (float("nan"), False),
+        (0, True),
+        (1.23, True),
+    ],
+)
+def test_is_filled_variants(value, expected: bool) -> None:
+    assert _is_filled(value) is expected

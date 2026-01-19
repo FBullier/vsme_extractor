@@ -28,3 +28,52 @@ def test_cli_list_all_indicators_is_naturally_sorted(monkeypatch: pytest.MonkeyP
     codes = [line.split("\t")[0] for line in out[1:]]
     assert codes == ["A1_1", "B2_1", "B9_1", "B10_1"]
 
+
+def test_cli_list_current_indicators_passes_apply_env_filter_true(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(cli, "find_dotenv", lambda *args, **kwargs: "")
+    monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
+
+    seen = {"apply_env_filter": None}
+
+    def fake_get_indicators(*, apply_env_filter: bool = True):  # type: ignore[no-untyped-def]
+        seen["apply_env_filter"] = apply_env_filter
+        return [{"code_vsme": "B1_1", "Code indicateur": "B1", "Métrique": "m"}]
+
+    monkeypatch.setattr(cli, "get_indicators", fake_get_indicators)
+
+    cli.main(["--list-current-indicators", "--no-log-stdout"])
+    _ = capsys.readouterr().out
+    assert seen["apply_env_filter"] is True
+
+
+def test_cli_mutually_exclusive_list_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "find_dotenv", lambda *args, **kwargs: "")
+    monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
+
+    with pytest.raises(SystemExit):
+        cli.main(["--list-current-indicators", "--list-all-indicators", "--no-log-stdout"])
+
+
+@pytest.mark.parametrize(
+    "codes,expected",
+    [
+        (["B10_1", "B9_1"], ["B9_1", "B10_1"]),
+        (["A10_1", "A2_1"], ["A2_1", "A10_1"]),
+        (["C8_10", "C8_2", "C8_1"], ["C8_1", "C8_2", "C8_10"]),
+        (["AA2_1", "A2_1"], ["A2_1", "AA2_1"]),
+    ],
+)
+def test_cli_natural_sort_various_codes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], codes: list[str], expected: list[str]
+) -> None:
+    monkeypatch.setattr(cli, "find_dotenv", lambda *args, **kwargs: "")
+    monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
+
+    def fake_get_indicators(*, apply_env_filter: bool = True):  # type: ignore[no-untyped-def]
+        return [{"code_vsme": c, "Code indicateur": c.split("_")[0], "Métrique": "m"} for c in codes]
+
+    monkeypatch.setattr(cli, "get_indicators", fake_get_indicators)
+    cli.main(["--list-all-indicators", "--no-log-stdout"])
+    out = capsys.readouterr().out.strip().splitlines()[1:]
+    got = [line.split("\t")[0] for line in out]
+    assert got == expected
