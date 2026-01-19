@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from . import VSMExtractor
 from .logging_utils import configure_logging, parse_env_bool
@@ -66,7 +66,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     """Entrée CLI installable (console_scripts)."""
-    load_dotenv()
+    # Load `.env` (searching from current working directory upward) and force override.
+    # This avoids surprising situations where a previously exported (possibly empty)
+    # variable masks the value set in `.env`.
+    load_dotenv(find_dotenv(usecwd=True), override=True)
 
     parser = build_parser()
     ns = parser.parse_args(argv)
