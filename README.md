@@ -252,6 +252,11 @@ Arborescence logique :
 - [`vsme_extractor/stats.py`](vsme_extractor/stats.py:1) : calcul de complétude sur des fichiers `.vsme.xlsx`.
 - [`vsme_extractor/logging_utils.py`](vsme_extractor/logging_utils.py:1) : configuration centralisée du logging (dont [`configure_logging_from_env()`](vsme_extractor/logging_utils.py:83)).
 
+### App Streamlit (optionnelle)
+
+Une mini-app Streamlit est disponible dans [`streamlit_app/`](streamlit_app/README.md:1).
+Elle permet d'uploader un PDF, de choisir des indicateurs (`code_vsme`) et de lancer l'extraction.
+
 ---
 
 ## 9) Limites connues / Troubleshooting
