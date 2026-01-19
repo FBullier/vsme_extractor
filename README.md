@@ -58,6 +58,8 @@ pip install ".[dev]"
 pip install ".[quality]"
 ```
 
+> Note : l’extra `quality` installe des outils de contrôle (lint/format/type/audit). Il ne modifie pas l’exécutable `vsme-extract`.
+
 > Remarque : ce repo conserve aussi [`requirements.txt`](requirements.txt:1). Vous pouvez continuer à l’utiliser si vous le souhaitez (duplication acceptée).
 
 ### Option B — via requirements.txt (si vous préférez)
@@ -278,6 +280,10 @@ Elle permet d'uploader un PDF, de choisir des indicateurs (`code_vsme`) et de la
 
 ### Qualité / checks (optionnel)
 
+- Fichiers de configuration :
+  - Pre-commit : [`.pre-commit-config.yaml`](.pre-commit-config.yaml:1)
+  - Pyright : [`pyrightconfig.json`](pyrightconfig.json:1)
+
 - Typage (pyright) :
   ```bash
   pyright
@@ -288,11 +294,15 @@ Elle permet d'uploader un PDF, de choisir des indicateurs (`code_vsme`) et de la
   pip-audit
   ```
 
+  Note : `pip-audit` peut afficher un “Skip Reason” pour `vsme-extractor` lui-même si le projet n’est pas publié sur PyPI (normal).
+
 - Hooks git (pre-commit) :
   ```bash
   pre-commit install
   pre-commit run -a
   ```
+
+  Les hooks incluent `ruff` + `ruff-format` + `pyright` + `pytest`.
 
 ---
 
