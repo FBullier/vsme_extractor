@@ -1,3 +1,11 @@
+"""Tests for stats computation.
+
+Focus: deterministic logic in [`vsme_extractor.stats.count_filled_indicators()`](vsme_extractor/stats.py:25)
+and [`vsme_extractor.stats._is_filled()`](vsme_extractor/stats.py:10).
+
+We create temporary `.vsme.xlsx` files and validate counting + sorting behaviour.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,6 +17,7 @@ from vsme_extractor.stats import _is_filled, count_filled_indicators
 
 
 def test_count_filled_indicators_counts_and_sorts(tmp_path: Path) -> None:
+    """Basic scenario: counts filled values and applies natural sort B1 before B10."""
     # Build 2 minimal .vsme.xlsx files.
     df1 = pd.DataFrame(
         [
@@ -42,12 +51,14 @@ def test_count_filled_indicators_counts_and_sorts(tmp_path: Path) -> None:
 
 
 def test_count_filled_indicators_raises_when_empty_dir(tmp_path: Path) -> None:
+    """An empty directory should raise (no input files to aggregate)."""
     # No *.vsme.xlsx files
     with pytest.raises(FileNotFoundError):
         count_filled_indicators(tmp_path)
 
 
 def test_count_filled_indicators_skips_files_with_missing_columns(tmp_path: Path) -> None:
+    """Files with missing columns are skipped; valid files are still processed."""
     # File missing required columns should be skipped and not crash.
     bad = pd.DataFrame([{"foo": 1}])
     bad_path = tmp_path / "bad.vsme.xlsx"
@@ -83,4 +94,5 @@ def test_count_filled_indicators_skips_files_with_missing_columns(tmp_path: Path
     ],
 )
 def test_is_filled_variants(value, expected: bool) -> None:
+    """`_is_filled` should treat NA-ish strings and blank values as not filled."""
     assert _is_filled(value) is expected
