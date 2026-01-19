@@ -9,11 +9,18 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 ```text
 .
 ├── .env
+├── .env.example
+├── MANIFEST.in
 ├── main.py
 ├── README.md
 ├── ARCHITECTURE.md
 ├── pyproject.toml
 ├── requirements.txt
+├── requirements-dev.txt
+├── requirements-streamlit.txt
+├── pytest.ini
+├── tests/
+├── streamlit_app/
 ├── exemples/
 │   ├── example_extract_pdf.py
 │   └── example_usage.ipynb
@@ -37,11 +44,12 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 ## 2) Points d’entrée
 
 ### 2.1 CLI
-- Point d’entrée : [`main()`](vsme_extractor/cli.py:76) dans [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1)
+- Point d’entrée : [`main()`](vsme_extractor/cli.py:87) dans [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1)
 - Installée via le script console défini dans [`pyproject.toml`](pyproject.toml:1) (commande `vsme-extract`)
-- Deux usages :
+- Usages principaux :
   - **Extraction** : `vsme-extract <fichier.pdf|dossier/>`
   - **Stats** : `vsme-extract --count <dossier_resultats>`
+  - **Listing** : `vsme-extract --list-current-indicators` / `vsme-extract --list-all-indicators`
 
 ### 2.2 API Python (package)
 - API publique exposée dans [`vsme_extractor/__init__.py`](vsme_extractor/__init__.py:1)
@@ -133,7 +141,7 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 - [`vsme_extractor/stats.py`](vsme_extractor/stats.py:1)  
   Post-traitement “complétude” :
   - lit les `.vsme.xlsx` d’un répertoire
-  - calcule les occurrences renseignées via [`count_filled_indicators()`](vsme_extractor/stats.py:21)
+  - calcule les occurrences renseignées via [`count_filled_indicators()`](vsme_extractor/stats.py:25)
 
 - [`vsme_extractor/logging_utils.py`](vsme_extractor/logging_utils.py:1)
   Configuration logging centralisée via [`configure_logging()`](vsme_extractor/logging_utils.py:13) et activation “opt-in” via [`configure_logging_from_env()`](vsme_extractor/logging_utils.py:88).
