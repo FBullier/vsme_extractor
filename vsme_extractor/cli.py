@@ -69,7 +69,8 @@ def main(argv: list[str] | None = None) -> None:
     # Load `.env` (searching from current working directory upward) and force override.
     # This avoids surprising situations where a previously exported (possibly empty)
     # variable masks the value set in `.env`.
-    load_dotenv(find_dotenv(usecwd=True), override=True)
+    dotenv_path = find_dotenv(usecwd=True)
+    dotenv_loaded = load_dotenv(dotenv_path, override=True)
 
     parser = build_parser()
     ns = parser.parse_args(argv)
@@ -81,6 +82,21 @@ def main(argv: list[str] | None = None) -> None:
         reset_handlers=True,
     )
     logger = logging.getLogger(__name__)
+
+    # Diagnostics: confirm which .env was found/loaded and what indicator-filtering vars look like.
+    # (Do NOT log secrets.)
+    logger.info(
+        "dotenv | found=%s | loaded=%s | cwd=%s",
+        dotenv_path or None,
+        dotenv_loaded,
+        str(Path.cwd()),
+    )
+    logger.info(
+        "env | SCW_API_KEY_set=%s | VSM_INDICATORS_PATH=%s | VSME_CODE_VSME_LIST=%s",
+        bool(os.getenv("SCW_API_KEY")),
+        (os.getenv("VSM_INDICATORS_PATH") or "").strip() or None,
+        (os.getenv("VSME_CODE_VSME_LIST") or "").strip() or None,
+    )
 
     # ===============================
     # CHECK OPTION --count
