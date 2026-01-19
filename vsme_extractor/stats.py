@@ -106,6 +106,7 @@ def count_filled_indicators(results_dir: str | Path) -> pd.DataFrame:
 
     # --- Extraire l'indice numérique à partir du code 'Bxx' ---
     def extract_num(code: str) -> int:
+        """Extrait la partie numérique d'un code (ex. B3 -> 3) pour un tri naturel."""
         try:
             return int(str(code)[1:])  # B3 → 3
         except Exception:

@@ -36,6 +36,7 @@ def _env_bool(name: str) -> bool:
 
 
 def _format_prompt_block(*, model: str, base_url: str, system: str, user: str) -> str:
+    """Formate un bloc de prompt (system+user) pour audit/logging."""
     # Sépare clairement les blocs pour faciliter la relecture/audit
     return (
         "\n"
@@ -112,6 +113,7 @@ def _configure_prompts_logger() -> bool:
 
 
 def _safe_log_prompt(*, model: str, base_url: str, system: str, user: str) -> None:
+    """Loggue le prompt si (et seulement si) la config d'audit des prompts est activée."""
     if not _configure_prompts_logger():
         return
     PROMPTS_LOGGER.info(
@@ -121,6 +123,7 @@ def _safe_log_prompt(*, model: str, base_url: str, system: str, user: str) -> No
 
 
 def _safe_get_usage(resp: Any) -> Optional[Dict[str, int]]:
+    """Récupère les compteurs de tokens depuis une réponse provider (best-effort)."""
     usage = getattr(resp, "usage", None)
     if usage is not None:
         if hasattr(usage, "prompt_tokens"):
@@ -150,6 +153,7 @@ def _safe_get_usage(resp: Any) -> Optional[Dict[str, int]]:
 
 
 def _estimate_tokens(text: str) -> int:
+    """Estime le nombre de tokens pour un texte (tiktoken si dispo, sinon heuristique)."""
     try:
         enc = get_encoding("cl100k_base")
         return len(enc.encode(text))
@@ -176,7 +180,10 @@ def _usage_from_obj(u):
     return None
 
 class LLM:
+    """Client LLM OpenAI-compatible avec estimation de tokens et coût."""
+
     def __init__(self, config: LLMConfig):
+        """Initialise le client OpenAI-compatible avec la config fournie."""
         self.config = config
         self.client = OpenAI(
             base_url=config.base_url,
@@ -190,6 +197,7 @@ class LLM:
         max_tokens: int = 512,
         system_prompt: Optional[str] = None,
     ):
+        """Effectue un appel non-stream au LLM et renvoie texte + métriques de tokens/coût."""
         
         extra_body = {"reasoning": {"effort": "low"}}  # ou "medium"/"high"
         system = system_prompt or self.config.system_prompt

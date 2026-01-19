@@ -15,6 +15,7 @@ from .stats import count_filled_indicators
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Construit le parser CLI (args + defaults issus de l'environnement)."""
     parser = argparse.ArgumentParser(
         prog="vsme-extract",
         description="Extraction automatique d'indicateurs VSME depuis des rapports PDF.",
@@ -148,6 +149,7 @@ def main(argv: list[str] | None = None) -> None:
             return (letters, num, idx, s)
 
         def _row_sort_key(t: tuple[str, str, str]) -> tuple:
+            """Clé de tri globale pour une ligne (priorité au code_vsme)."""
             code_vsme, metric, code_ind = t
             # Préfère `code_vsme` si présent ; sinon fallback sur `Code indicateur`.
             primary = code_vsme or code_ind

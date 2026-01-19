@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ExtractionStats:
+    """Statistiques d'exécution (tokens et coût estimé)."""
+
     total_input_tokens: int
     total_output_tokens: int
     total_cost_eur: float
@@ -61,6 +63,11 @@ def detect_document_language(page_texts: list[str]) -> str:
 
 
 class VSMExtractor:
+    """Pipeline principal d'extraction VSME depuis un PDF.
+
+    Étapes : chargement PDF -> sélection d'extraits -> extraction LLM -> agrégation en DataFrame.
+    """
+
     def __init__(
         self,
         top_k_snippets: int = 6,
@@ -68,6 +75,7 @@ class VSMExtractor:
         max_tokens: int = 512,
         retrieval_method: Literal["count", "bm25"] = "count",
     ):
+        """Initialise l'extracteur (LLM + paramètres de retrieval/extraction)."""
         self.config = load_llm_config()
         self.llm = LLM(self.config)
 
@@ -100,6 +108,7 @@ class VSMExtractor:
         self._keywords_translation_cache: Dict[tuple[str, str], str] = {}
 
     def extract_from_pdf(self, pdf_path: str) -> Tuple[pd.DataFrame, ExtractionStats]:
+        """Extrait les indicateurs d'un PDF et retourne (DataFrame, stats)."""
         t_total0 = time.perf_counter()
         logger.info("START extract_from_pdf | pdf_path=%s | retrieval_method=%s", pdf_path, self.retrieval_method)
 

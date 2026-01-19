@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 def load_pdf(pdf_path: str | Path) -> Tuple[list, List[str], str]:
+    """Charge un PDF et retourne (pages, textes_par_page, texte_complet).
+
+    Utilise `PyPDFLoader` (langchain-community) et concatène les pages.
+    """
     pdf_path = Path(pdf_path)
 
     logger.info("START load_pdf | path=%s", pdf_path)

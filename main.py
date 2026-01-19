@@ -24,6 +24,7 @@ from vsme_extractor.logging_utils import configure_logging_from_env
 
 
 def main() -> None:
+    """Exemple minimal : extraction d'un PDF vers un fichier .vsme.xlsx."""
     # Charge .env si présent (SCW_API_KEY, etc.)
     load_dotenv()
 

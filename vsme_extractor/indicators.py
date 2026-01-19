@@ -22,6 +22,16 @@ def get_indicators(
     *,
     apply_env_filter: bool = True,
 ) -> List[Dict[str, Any]]:
+    """Charge la liste des indicateurs depuis un CSV.
+
+    Par défaut, le CSV est lu depuis les données packagées (voir `PACKAGE_CSV_NAME`).
+    Il est possible de surcharger via :
+    - `VSM_INDICATORS_PATH` : chemin vers un CSV alternatif.
+
+    Filtrage (si `apply_env_filter=True`) :
+    - si `VSME_CODE_VSME_LIST` est non vide : filtre sur les `code_vsme` listés
+    - sinon : filtre sur `defaut == 1`
+    """
     if path is None:
         env_path = os.getenv("VSM_INDICATORS_PATH")
 
@@ -43,6 +53,7 @@ def get_indicators(
                 path = Path(p)
 
     def detect_encoding(p: str | Path):
+        """Détecte l'encodage d'un fichier via `chardet`."""
         with open(p, "rb") as f:
             raw = f.read()
         return chardet.detect(raw)

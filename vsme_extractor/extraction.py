@@ -20,6 +20,14 @@ def extract_value_for_metric(
     *,
     json_repair: bool = True,
 ) -> Tuple[Dict[str, Any], int, int, str]:
+    """Extrait une valeur (et unité/paragraphe) pour une métrique via le LLM.
+
+    Retourne un tuple :
+    - dict normalisé {"valeur", "unité", "paragraphe"}
+    - prompt_tokens (int)
+    - completion_tokens (int)
+    - trace du prompt (str)
+    """
     context_joined = "\n\n---\n\n".join(contexte_snippets[:6])
     user_prompt = build_user_prompt(metric, unite, context_joined)
 
@@ -40,6 +48,7 @@ def extract_value_for_metric(
     out_tokens = int(raw.get("completion_tokens") or 0)
 
     def _normalize(data: Dict[str, Any]) -> Dict[str, str]:
+        """Normalise la sortie modèle vers les 3 champs attendus."""
         valeur = str(data.get("valeur", "NA")).strip()
         unite_ret = str(data.get("unité", data.get("unite", "NA"))).strip()
         paragraphe = str(data.get("paragraphe", "NA")).strip()
@@ -62,6 +71,7 @@ def extract_value_for_metric(
         logger.debug("JSON parse | status=failed | attempting fallback")
         # 1) Best-effort regex extraction for the 3 fields
         def _extract(pattern: str) -> str | None:
+            """Extrait un champ via regex (best-effort)."""
             m = re.search(pattern, text, re.S | re.I)
             return m.group(1).strip() if m else None
 

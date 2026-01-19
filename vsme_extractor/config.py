@@ -9,6 +9,8 @@ EURO_COST_PER_MILLION_OUTPUT = float(os.getenv("VSM_OUTPUT_COST_EUR", 0.60))
 
 @dataclass
 class LLMConfig:
+    """Configuration du client LLM (API key, endpoint, modèle, prompt système)."""
+
     api_key: str
     base_url: str
     model: str
@@ -16,6 +18,13 @@ class LLMConfig:
 
 
 def load_llm_config() -> LLMConfig:
+    """Charge la configuration LLM depuis les variables d'environnement.
+
+    Variables attendues :
+    - `SCW_API_KEY` (obligatoire)
+    - `SCW_BASE_URL` (optionnel)
+    - `SCW_MODEL_NAME` (optionnel)
+    """
     api_key = os.getenv("SCW_API_KEY")
     if not api_key:
         raise RuntimeError("SCW_API_KEY manquant. Définis-le dans ton environnement ou ton .env.")

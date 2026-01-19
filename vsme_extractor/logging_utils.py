@@ -36,6 +36,7 @@ class SizedTimedRotatingFileHandler(TimedRotatingFileHandler):
         max_bytes: int = 10_000_000,  # < 10 Mo
         retention_days: int = 7,
     ) -> None:
+        """Crée un handler avec rotation par temps + taille et rétention en jours."""
         self.max_bytes = int(max_bytes or 0)
         self.retention_days = int(retention_days or 0)
 
@@ -51,6 +52,7 @@ class SizedTimedRotatingFileHandler(TimedRotatingFileHandler):
         )
 
     def shouldRollover(self, record: logging.LogRecord) -> int:  # type: ignore[override]
+        """Détermine si une rotation doit avoir lieu (taille ou temps)."""
         # 1) rotation par taille (comme RotatingFileHandler)
         if self.max_bytes > 0:
             if self.stream is None:
@@ -157,11 +159,13 @@ class _MinLevelByLoggerPrefixFilter(logging.Filter):
     """Filtre les logs en dessous de `min_level` pour certains préfixes de loggers."""
 
     def __init__(self, prefixes: tuple[str, ...], min_level: int):
+        """Construit un filtre qui impose un niveau minimal sur certains préfixes."""
         super().__init__()
         self.prefixes = prefixes
         self.min_level = min_level
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """Retourne True si le record doit être conservé, sinon False."""
         for p in self.prefixes:
             if record.name == p or record.name.startswith(p + "."):
                 return record.levelno >= self.min_level

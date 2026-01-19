@@ -6,6 +6,7 @@ from typing import List, Literal
 
 
 def _tokenize(text: str) -> list[str]:
+    """Tokenise un texte en mots (min 3 caractères), en minuscules."""
     return [t for t in re.split(r"\W+", (text or "").lower()) if len(t) > 2]
 
 
@@ -71,6 +72,7 @@ def find_relevant_snippets(
 
         # L'IDF n'est nécessaire que pour les tokens de la requête
         def idf(term: str) -> float:
+            """Calcule un IDF BM25 lissé pour un terme."""
             n_q = df.get(term, 0)
             # Lissage “style BM25+” pour éviter des valeurs négatives sur des termes très fréquents
             return math.log(1.0 + (n_docs - n_q + 0.5) / (n_q + 0.5))

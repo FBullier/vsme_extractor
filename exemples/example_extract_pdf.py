@@ -30,6 +30,7 @@ from vsme_extractor.logging_utils import configure_logging_from_env  # noqa: E40
 
 
 def main() -> None:
+    """Exemple : extraction d'un PDF en utilisant la librairie (hors CLI)."""
     load_dotenv()
     configure_logging_from_env()
 

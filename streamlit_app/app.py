@@ -46,6 +46,7 @@ def get_extractor() -> VSMExtractor:
 
 
 def main() -> None:
+    """Point d'entrée Streamlit (UI upload -> sélection -> extraction -> affichage)."""
     # Charge le .env (utile pour SCW_API_KEY, etc.)
     load_dotenv(find_dotenv(usecwd=True), override=True)
 
@@ -154,4 +155,3 @@ Cette application Streamlit permet :
 
 if __name__ == "__main__":
     main()
-

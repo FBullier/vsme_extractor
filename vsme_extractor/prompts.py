@@ -12,6 +12,7 @@ Règles:
 """
 
 def build_user_prompt(metric: str, unite: str, context: str) -> str:
+    """Construit le prompt utilisateur envoyé au LLM pour une métrique donnée."""
     return f"""Contexte PDF (extraits) :
 {context}
 

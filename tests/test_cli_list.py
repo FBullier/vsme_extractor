@@ -22,6 +22,7 @@ def test_cli_list_all_indicators_is_naturally_sorted(monkeypatch: pytest.MonkeyP
 
     # Provide an unsorted list; CLI should output A1_1, B2_1, B9_1, B10_1.
     def fake_get_indicators(*, apply_env_filter: bool = True):  # type: ignore[no-untyped-def]
+        """Stub: renvoie une liste d'indicateurs pour tester le tri CLI."""
         return [
             {"code_vsme": "B10_1", "Code indicateur": "B10", "Métrique": "m"},
             {"code_vsme": "B9_1", "Code indicateur": "B9", "Métrique": "m"},
@@ -47,6 +48,7 @@ def test_cli_list_current_indicators_passes_apply_env_filter_true(monkeypatch: p
     seen = {"apply_env_filter": None}
 
     def fake_get_indicators(*, apply_env_filter: bool = True):  # type: ignore[no-untyped-def]
+        """Stub: permet de capturer la valeur de `apply_env_filter` utilisée par la CLI."""
         seen["apply_env_filter"] = apply_env_filter
         return [{"code_vsme": "B1_1", "Code indicateur": "B1", "Métrique": "m"}]
 
@@ -83,6 +85,7 @@ def test_cli_natural_sort_various_codes(
     monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: False)
 
     def fake_get_indicators(*, apply_env_filter: bool = True):  # type: ignore[no-untyped-def]
+        """Stub: renvoie les codes demandés pour tester l'ordre de tri."""
         return [{"code_vsme": c, "Code indicateur": c.split("_")[0], "Métrique": "m"} for c in codes]
 
     monkeypatch.setattr(cli, "get_indicators", fake_get_indicators)
