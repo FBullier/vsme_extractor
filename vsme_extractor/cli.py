@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
+import re
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -129,7 +130,28 @@ def main(argv: list[str] | None = None) -> None:
             code_ind = str(row.get("Code indicateur") or "").strip()
             items.append((code_vsme, metric, code_ind))
 
-        items.sort(key=lambda t: (t[0], t[2], t[1]))
+        def _code_sort_key(code: str) -> tuple:
+            """Sort key for codes like B1, B10, C8_1.
+
+            Order: letter(s) alpha, then numeric part as int, then optional suffix index as int.
+            """
+            s = (code or "").strip()
+            m = re.match(r"^([A-Za-z]+)(\d+)(?:_(\d+))?$", s)
+            if not m:
+                # Put non-matching codes at the end (lexical fallback)
+                return ("~", 10**9, 10**9, s)
+            letters = m.group(1).upper()
+            num = int(m.group(2))
+            idx = int(m.group(3)) if m.group(3) is not None else 0
+            return (letters, num, idx, s)
+
+        def _row_sort_key(t: tuple[str, str, str]) -> tuple:
+            code_vsme, metric, code_ind = t
+            # Prefer code_vsme when present; fallback to Code indicateur.
+            primary = code_vsme or code_ind
+            return (_code_sort_key(primary), _code_sort_key(code_vsme), _code_sort_key(code_ind), metric)
+
+        items.sort(key=_row_sort_key)
 
         print("code_vsme\tCode indicateur\tMétrique")
         for code_vsme, metric, code_ind in items:
