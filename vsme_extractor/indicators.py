@@ -17,7 +17,11 @@ PACKAGE_CSV_NAME = "indicateurs_vsme.csv"
 DEFAULT_INDICATORS_PATH = Path(__file__).parent / "data" / PACKAGE_CSV_NAME
 
 
-def get_indicators(path: str | Path | None = None) -> List[Dict[str, Any]]:
+def get_indicators(
+    path: str | Path | None = None,
+    *,
+    apply_env_filter: bool = True,
+) -> List[Dict[str, Any]]:
     if path is None:
         env_path = os.getenv("VSM_INDICATORS_PATH")
 
@@ -52,26 +56,27 @@ def get_indicators(path: str | Path | None = None) -> List[Dict[str, Any]]:
         on_bad_lines="skip",
     )
 
-    # Optional filtering by `code_vsme` via .env
-    # - If VSME_CODE_VSME_LIST is set and non-empty: keep only these `code_vsme`
-    # - Else (missing/empty): keep only rows where `defaut` == 1
-    codes_raw = (os.getenv("VSME_CODE_VSME_LIST") or "").strip()
-    if codes_raw:
-        if "code_vsme" not in df.columns:
-            logger.warning(
-                "VSME_CODE_VSME_LIST est défini mais la colonne 'code_vsme' est absente du CSV (%s). Aucun filtrage appliqué.",
-                path,
-            )
+    if apply_env_filter:
+        # Optional filtering by `code_vsme` via .env
+        # - If VSME_CODE_VSME_LIST is set and non-empty: keep only these `code_vsme`
+        # - Else (missing/empty): keep only rows where `defaut` == 1
+        codes_raw = (os.getenv("VSME_CODE_VSME_LIST") or "").strip()
+        if codes_raw:
+            if "code_vsme" not in df.columns:
+                logger.warning(
+                    "VSME_CODE_VSME_LIST est défini mais la colonne 'code_vsme' est absente du CSV (%s). Aucun filtrage appliqué.",
+                    path,
+                )
+            else:
+                codes = [c.strip() for c in re.split(r"[\s,;]+", codes_raw) if c.strip()]
+                df = df[df["code_vsme"].astype(str).isin(codes)]
         else:
-            codes = [c.strip() for c in re.split(r"[\s,;]+", codes_raw) if c.strip()]
-            df = df[df["code_vsme"].astype(str).isin(codes)]
-    else:
-        if "defaut" in df.columns:
-            df = df[df["defaut"].astype(str).str.strip() == "1"]
-        else:
-            logger.warning(
-                "VSME_CODE_VSME_LIST est vide/absent et la colonne 'defaut' est absente du CSV (%s). Aucun filtrage appliqué.",
-                path,
-            )
+            if "defaut" in df.columns:
+                df = df[df["defaut"].astype(str).str.strip() == "1"]
+            else:
+                logger.warning(
+                    "VSME_CODE_VSME_LIST est vide/absent et la colonne 'defaut' est absente du CSV (%s). Aucun filtrage appliqué.",
+                    path,
+                )
 
     return df.to_dict(orient="records")

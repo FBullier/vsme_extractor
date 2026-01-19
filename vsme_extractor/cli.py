@@ -28,12 +28,22 @@ def build_parser() -> argparse.ArgumentParser:
         dest="count_dir",
         help="Dossier contenant des fichiers .vsme.xlsx (pour calculer la complétude).",
     )
-    parser.add_argument(
-        "--list-indicators",
+    list_group = parser.add_mutually_exclusive_group()
+    list_group.add_argument(
+        "--list-current-indicators",
         action="store_true",
         help=(
-            "Affiche la liste des indicateurs chargés (après application des variables d’environnement), "
-            "sous la forme: code_vsme + métrique, triés par code_vsme."
+            "Affiche la liste des indicateurs actuellement utilisés par l’extracteur "
+            "(après application des variables d’environnement), sous la forme: code_vsme + métrique, "
+            "triés par code_vsme."
+        ),
+    )
+    list_group.add_argument(
+        "--list-all-indicators",
+        action="store_true",
+        help=(
+            "Affiche la liste complète des indicateurs du CSV (sans filtre `.env`), sous la forme: "
+            "code_vsme + métrique, triés par code_vsme."
         ),
     )
 
@@ -110,8 +120,8 @@ def main(argv: list[str] | None = None) -> None:
     # ===============================
     # LIST INDICATORS
     # ===============================
-    if ns.list_indicators:
-        indicators = get_indicators()
+    if ns.list_current_indicators or ns.list_all_indicators:
+        indicators = get_indicators(apply_env_filter=bool(ns.list_current_indicators))
         items = []
         for row in indicators:
             code_vsme = str(row.get("code_vsme") or "").strip()
