@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Exemple d’utilisation de la librairie `vsme_extractor` (ce fichier n'est pas la CLI).
 
@@ -14,6 +12,8 @@ Le logging (optionnel) peut être activé via des variables d’environnement :
 - VSME_LOG_FILE=/chemin/vers/vsme.log
 - VSME_LOG_STDOUT=1|0 (true/false, yes/no, on/off)
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 

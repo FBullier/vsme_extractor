@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Exemple : utiliser la librairie `vsme_extractor` depuis votre propre script.
 
@@ -13,6 +11,8 @@ Prérequis :
 Exécution :
     python exemples/example_extract_pdf.py
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 import sys

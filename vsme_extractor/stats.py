@@ -108,7 +108,7 @@ def count_filled_indicators(results_dir: str | Path) -> pd.DataFrame:
     def extract_num(code: str) -> int:
         try:
             return int(str(code)[1:])  # B3 → 3
-        except:
+        except Exception:
             return 9999  # sécurité
 
     result_df["Index tri"] = result_df["Code indicateur"].apply(extract_num)
