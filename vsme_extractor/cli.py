@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 
 from . import VSMExtractor
+from .indicators import get_indicators
 from .logging_utils import configure_logging, parse_env_bool
 from .stats import count_filled_indicators
 
@@ -26,6 +27,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--count",
         dest="count_dir",
         help="Dossier contenant des fichiers .vsme.xlsx (pour calculer la complétude).",
+    )
+    parser.add_argument(
+        "--list-indicators",
+        action="store_true",
+        help=(
+            "Affiche la liste des indicateurs chargés (après application des variables d’environnement), "
+            "sous la forme: code_vsme + métrique, triés par code_vsme."
+        ),
     )
 
     # Logging defaults can come from environment variables
@@ -97,6 +106,25 @@ def main(argv: list[str] | None = None) -> None:
         (os.getenv("VSM_INDICATORS_PATH") or "").strip() or None,
         (os.getenv("VSME_CODE_VSME_LIST") or "").strip() or None,
     )
+
+    # ===============================
+    # LIST INDICATORS
+    # ===============================
+    if ns.list_indicators:
+        indicators = get_indicators()
+        items = []
+        for row in indicators:
+            code_vsme = str(row.get("code_vsme") or "").strip()
+            metric = str(row.get("Métrique") or row.get("Metrique") or "").strip()
+            code_ind = str(row.get("Code indicateur") or "").strip()
+            items.append((code_vsme, metric, code_ind))
+
+        items.sort(key=lambda t: (t[0], t[2], t[1]))
+
+        print("code_vsme\tCode indicateur\tMétrique")
+        for code_vsme, metric, code_ind in items:
+            print(f"{code_vsme}\t{code_ind}\t{metric}")
+        return
 
     # ===============================
     # CHECK OPTION --count

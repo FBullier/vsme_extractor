@@ -144,6 +144,12 @@ Après installation via `pip install .` :
   vsme-extract --help
   ```
 
+- Lister les indicateurs chargés (après application de `VSM_INDICATORS_PATH` / `VSME_CODE_VSME_LIST`) :
+  ```bash
+  vsme-extract --list-indicators
+  ```
+  Sortie : une table `code_vsme / Code indicateur / Métrique` triée par `code_vsme`.
+
 - Extraction d’un PDF :
   ```bash
   vsme-extract ./chemin/rapport.pdf
