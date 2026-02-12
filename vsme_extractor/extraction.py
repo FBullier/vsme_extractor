@@ -5,7 +5,7 @@ import logging
 import re
 from typing import Any, Dict, Sequence, Tuple
 
-from .llm_client import LLM
+from .llm_client import LLM, _estimate_tokens
 from .prompts import EXTRACTION_SYSTEM_PROMPT, build_user_prompt
 
 logger = logging.getLogger(__name__)
@@ -30,11 +30,15 @@ def extract_value_for_metric(
     - trace du prompt (str)
     """
     context_joined = "\n\n---\n\n".join(contexte_snippets[:6])
-    user_prompt = build_user_prompt(metric, unite, context_joined)
+    user_prompt = build_user_prompt(metric, unite)
 
     # IMPORTANT: do not duplicate the system prompt.
     # The system prompt is passed via `system_prompt=...` and the user prompt goes in `question`.
-    prompt_trace = f"SYSTEM:\n{EXTRACTION_SYSTEM_PROMPT}\n\nUSER:\n{user_prompt}"
+    prompt_trace = (
+        f"SYSTEM:\n{EXTRACTION_SYSTEM_PROMPT}"
+        f"\n\nCONTEXT:\n{context_joined}"
+        f"\n\nUSER:\n{user_prompt}"
+    )
 
     logger.debug("START extract_value_for_metric | metric=%s | unit=%s", metric, unite)
     raw = llm.invoke(
@@ -42,11 +46,26 @@ def extract_value_for_metric(
         temperature=temperature,
         max_tokens=max_tokens,
         system_prompt=EXTRACTION_SYSTEM_PROMPT,
+        context=context_joined,
     )
 
     text = raw.get("text", "") or ""
     in_tokens = int(raw.get("prompt_tokens") or 0)
     out_tokens = int(raw.get("completion_tokens") or 0)
+
+    # Debug: allow verifying whether high output_tokens come from genuinely long text
+    # or from provider-reported usage. Does not log the content.
+    try:
+        logger.debug(
+            "LLM response stats | metric=%s | used_api_usage=%s | chars_out=%s | est_out_tokens=%s | reported_out_tokens=%s",
+            metric,
+            bool(raw.get("used_api_usage")),
+            len(text),
+            _estimate_tokens(text),
+            out_tokens,
+        )
+    except Exception:
+        pass
 
     def _normalize(data: Dict[str, Any]) -> Dict[str, str]:
         """Normalise la sortie modèle vers les 3 champs attendus."""
@@ -97,7 +116,12 @@ def extract_value_for_metric(
         }
 
         # 2) Optional single repair pass: ask the model to output strict JSON only
-        if json_repair and ("NA" in extracted.values() or "{" in text or "}" in text):
+        # On évite un appel "repair" si la réponse modèle est vide.
+        if (
+            json_repair
+            and text.strip() != ""
+            and ("NA" in extracted.values() or "{" in text or "}" in text)
+        ):
             logger.debug("JSON repair | status=attempt")
             repair_system = "Tu es un assistant de correction de JSON. Tu réponds uniquement en JSON valide."
             repair_user = (
