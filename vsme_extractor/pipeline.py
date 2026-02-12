@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+import os
 import time
 from typing import Dict, Literal, Tuple
 
@@ -73,7 +74,9 @@ class VSMExtractor:
         top_k_snippets: int = 6,
         temperature: float = 0.2,
         max_tokens: int = 512,
-        retrieval_method: Literal["count", "bm25"] = "count",
+        retrieval_method: Literal[
+            "count", "count_score", "bm25", "bm25_souple"
+        ] = "count",
     ):
         """Initialise l'extracteur (LLM + paramètres de retrieval/extraction)."""
         self.config = load_llm_config()
@@ -81,32 +84,62 @@ class VSMExtractor:
 
         # Audit : petit “healthcheck” pour tracer dans les logs que le LLM répond.
         # On garde ça minimal pour limiter coût/latence (requiert tout de même un accès réseau).
-        try:
-            health = self.llm.invoke(
-                question="Réponds uniquement: OK",
-                temperature=0.0,
-                max_tokens=4,
-                system_prompt="Réponds uniquement: OK",
-            )
-            ok_text = (health.get("text", "") or "").strip()
+        #
+        # Important : certains providers peuvent être temporairement indisponibles.
+        # Variables d'env :
+        #   - VSME_LLM_HEALTHCHECK=0/false pour désactiver totalement
+        #   - VSME_LLM_HEALTHCHECK_STRICT=0/false pour ne PAS faire échouer le démarrage si le check échoue
+        hc_enabled = (os.getenv("VSME_LLM_HEALTHCHECK") or "1").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "y",
+            "on",
+        }
+        hc_strict = (
+            (os.getenv("VSME_LLM_HEALTHCHECK_STRICT") or "1").strip().lower()
+            in {"1", "true", "yes", "y", "on"}
+        )
+
+        if not hc_enabled:
             logger.info(
-                "LLM opérationnel | model=%s | base_url=%s | response=%s",
-                self.config.model,
-                self.config.base_url,
-                ok_text,
-            )
-        except Exception:
-            logger.exception(
-                "LLM check failed | model=%s | base_url=%s",
+                "LLM healthcheck disabled | model=%s | base_url=%s",
                 self.config.model,
                 self.config.base_url,
             )
-            raise
+        else:
+            try:
+                health = self.llm.invoke(
+                    question="Réponds uniquement: OK",
+                    temperature=0.0,
+                    max_tokens=4,
+                    system_prompt="Réponds uniquement: OK",
+                )
+                ok_text = (health.get("text", "") or "").strip()
+                logger.info(
+                    "LLM opérationnel | model=%s | base_url=%s | api_protocol=%s | invoke_mode=%s | response=%s",
+                    self.config.model,
+                    self.config.base_url,
+                    getattr(self.config, "api_protocol", "chat.completions"),
+                    getattr(self.config, "invoke_mode", "invoke"),
+                    ok_text,
+                )
+            except Exception:
+                logger.exception(
+                    "LLM check failed | model=%s | base_url=%s | strict=%s",
+                    self.config.model,
+                    self.config.base_url,
+                    hc_strict,
+                )
+                if hc_strict:
+                    raise
 
         self.top_k_snippets = top_k_snippets
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.retrieval_method: Literal["count", "bm25"] = retrieval_method
+        self.retrieval_method: Literal[
+            "count", "count_score", "bm25", "bm25_souple"
+        ] = retrieval_method
 
         # Cache de traduction des mots-clés : (lang, keywords) -> translated_keywords
         self._keywords_translation_cache: Dict[tuple[str, str], str] = {}
@@ -148,8 +181,10 @@ class VSMExtractor:
 
         if lang == "fr":
             keywords_tag = "Mots clés"
+            must_have_tag = "à avoir"
         else:
             keywords_tag = "Keywords"
+            must_have_tag = "must have"
 
         results = []
         tot_in_tokens = 0
@@ -164,6 +199,7 @@ class VSMExtractor:
             metric = row["Métrique"]
             unite = row["Unité / Détail"]
             keywords = row.get(keywords_tag, "")
+            must_have_raw = row.get(must_have_tag, "")
 
             code = row.get("Code indicateur", "NA")
             logger.info(
@@ -210,6 +246,11 @@ class VSMExtractor:
                 page_texts=page_texts,
                 k=self.top_k_snippets,
                 method=self.retrieval_method,
+                must_have_terms=[
+                    t.strip()
+                    for t in str(must_have_raw).split(",")
+                    if t.strip() != ""
+                ],
             )
             logger.debug(
                 "Retrieval | snippets=%s | method=%s",
@@ -217,8 +258,33 @@ class VSMExtractor:
                 self.retrieval_method,
             )
 
-            # Sinon, fallback : utiliser le début du document
+            # Si aucun extrait n'est pertinent
             if not ctx_selected:
+                # Cas particulier : méthodes de filtrage (count_score / bm25_souple).
+                # Si aucune page ne passe les seuils, on renvoie NA (et on évite un appel LLM).
+                if self.retrieval_method in {"bm25_souple", "count_score"}:
+                    logger.info(
+                        "No relevant page (thresholded retrieval) | method=%s | code=%s | metric=%s -> NA",
+                        self.retrieval_method,
+                        code,
+                        metric,
+                    )
+                    results.append(
+                        {
+                            # Préfère `code_vsme` (ex. B3_1) si présent, sinon fallback sur `Code indicateur` (ex. B3).
+                            "Code indicateur": row.get("code_vsme")
+                            or row.get("Code indicateur")
+                            or "NA",
+                            "Thématique": row["Thématique"],
+                            "Métrique": row["Métrique"],
+                            "Valeur": "NA",
+                            "Unité extraite": "NA",
+                            "Paragraphe source": "",
+                        }
+                    )
+                    continue
+
+                # Sinon, fallback : utiliser le début du document
                 logger.debug(
                     "Fallback retrieval | utilisation de l'en-tête du document"
                 )
@@ -275,7 +341,10 @@ class VSMExtractor:
 
             results.append(
                 {
-                    "Code indicateur": row["Code indicateur"],
+                    # Préfère `code_vsme` (ex. B3_1) si présent, sinon fallback sur `Code indicateur` (ex. B3).
+                    "Code indicateur": row.get("code_vsme")
+                    or row.get("Code indicateur")
+                    or "NA",
                     "Thématique": row["Thématique"],
                     "Métrique": row["Métrique"],
                     "Valeur": data["valeur"],
