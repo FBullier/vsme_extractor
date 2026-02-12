@@ -1,0 +1,6 @@
+[server]
+# Workaround for intermittent 403 errors on file upload (XSRF/CORS issues)
+# when running locally. Do not use these settings as-is on a public deployment.
+enableXsrfProtection = false
+enableCORS = false
+
