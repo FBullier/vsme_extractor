@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 from dataclasses import dataclass
+from typing import Literal
 
 # Coûts, éventuellement overridables par .env
 EURO_COST_PER_MILLION_INPUT = float(os.getenv("VSM_INPUT_COST_EUR", 0.15))
@@ -15,6 +16,13 @@ class LLMConfig:
     base_url: str
     model: str
     system_prompt: str = "You are a helpful assistant"
+    api_protocol: Literal["chat.completions", "responses"] = "chat.completions"
+    invoke_mode: Literal["invoke", "invoke_stream"] = "invoke"
+
+    # Gestion du rate limit (HTTP 429)
+    rate_limit_max_retries: int = 0
+    rate_limit_retry_sleep_s: float = 60.0
+    rate_limit_use_retry_after: bool = True
 
 
 def load_llm_config() -> LLMConfig:
@@ -37,8 +45,47 @@ def load_llm_config() -> LLMConfig:
     )
     model = os.getenv("SCW_MODEL_NAME", "gpt-oss-120b")
 
+    # Permet de choisir le protocole OpenAI-compatible à utiliser selon le provider.
+    # Valeurs supportées :
+    # - chat.completions (compat large)
+    # - responses (nouvelle API OpenAI)
+    api_protocol = (os.getenv("VSME_API_PROTOCOL") or "chat.completions").strip().lower()
+    if api_protocol not in {"chat.completions", "responses"}:
+        api_protocol = "chat.completions"
+
+    invoke_mode = (os.getenv("VSME_INVOKE_MODE") or "invoke").strip().lower()
+    if invoke_mode not in {"invoke", "invoke_stream"}:
+        invoke_mode = "invoke"
+
+    # Rate limit (HTTP 429)
+    try:
+        rate_limit_max_retries = int(os.getenv("VSME_RATE_LIMIT_MAX_RETRIES", "0") or 0)
+    except Exception:
+        rate_limit_max_retries = 0
+    if rate_limit_max_retries < 0:
+        rate_limit_max_retries = 0
+
+    try:
+        rate_limit_retry_sleep_s = float(
+            os.getenv("VSME_RATE_LIMIT_RETRY_SLEEP_S", "60") or 60
+        )
+    except Exception:
+        rate_limit_retry_sleep_s = 60.0
+    if rate_limit_retry_sleep_s < 0:
+        rate_limit_retry_sleep_s = 0.0
+
+    rate_limit_use_retry_after = (
+        os.getenv("VSME_RATE_LIMIT_USE_RETRY_AFTER", "1").strip().lower()
+        in {"1", "true", "yes", "y", "on"}
+    )
+
     return LLMConfig(
         api_key=api_key,
         base_url=base_url,
         model=model,
+        api_protocol=api_protocol,  # type: ignore[arg-type]
+        invoke_mode=invoke_mode,  # type: ignore[arg-type]
+        rate_limit_max_retries=rate_limit_max_retries,
+        rate_limit_retry_sleep_s=rate_limit_retry_sleep_s,
+        rate_limit_use_retry_after=rate_limit_use_retry_after,
     )
