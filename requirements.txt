@@ -4,6 +4,7 @@ pypdf
 pandas
 openpyxl
 openai
+tenacity
 python-dotenv
 tiktoken
 chardet

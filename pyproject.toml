@@ -5,6 +5,7 @@ description = "Extraction automatique d'indicateurs VSME depuis rapports PDF"
 requires-python = ">=3.11"
 dependencies = [
     "openai",
+    "tenacity",
     "python-dotenv",
     "pandas",
     "langchain",
