@@ -1,4 +1,5 @@
 import logging
+import json
 from pathlib import Path
 from typing import Any, Dict
 
@@ -24,8 +25,8 @@ def _is_filled(value) -> bool:
 
 def count_filled_indicators(results_dir: str | Path) -> pd.DataFrame:
     """
-    Analyse tous les fichiers .vsme.xlsx d'un répertoire et compte, pour chaque métrique,
-    dans combien de fichiers la colonne 'Valeur' est renseignée.
+    Analyse tous les fichiers .vsme.xlsx et/ou .vsme.json d'un répertoire et compte,
+    pour chaque métrique, dans combien de fichiers la colonne 'Valeur' est renseignée.
 
     Ajoute également :
       - Code indicateur
@@ -33,18 +34,41 @@ def count_filled_indicators(results_dir: str | Path) -> pd.DataFrame:
     """
 
     results_dir = Path(results_dir)
-    excel_files = sorted(results_dir.glob("*.vsme.xlsx"))
+    result_files = sorted(results_dir.glob("*.vsme.xlsx")) + sorted(
+        results_dir.glob("*.vsme.json")
+    )
 
-    if not excel_files:
-        raise FileNotFoundError(f"Aucun fichier .vsme.xlsx trouvé dans : {results_dir}")
+    if not result_files:
+        raise FileNotFoundError(
+            f"Aucun fichier .vsme.xlsx ou .vsme.json trouvé dans : {results_dir}"
+        )
 
     # Structure de stockage :
     # key = (Code indicateur, Métrique)
     # value = dict avec code, thématique, métrique, compte, nb_fichiers
     stats: Dict[tuple, Dict[str, Any]] = {}
 
-    for f in excel_files:
-        df = pd.read_excel(f)
+    for f in result_files:
+        if f.suffix.lower() == ".xlsx":
+            try:
+                # Spécifie explicitement l'engine pour éviter les erreurs de détection.
+                df = pd.read_excel(f, engine="openpyxl")
+            except Exception:
+                logger.warning("Fichier ignoré (Excel illisible) : %s", f.name)
+                continue
+        elif f.suffix.lower() == ".json":
+            try:
+                payload = json.loads(f.read_text(encoding="utf-8"))
+                rows = payload.get("results")
+                if not isinstance(rows, list):
+                    logger.warning("Fichier ignoré (JSON invalide) : %s", f.name)
+                    continue
+                df = pd.DataFrame(rows)
+            except Exception:
+                logger.warning("Fichier ignoré (JSON illisible) : %s", f.name)
+                continue
+        else:
+            continue
 
         # Vérif colonnes minimales
         required_cols = {"Code indicateur", "Thématique", "Métrique", "Valeur"}
@@ -100,6 +124,19 @@ def count_filled_indicators(results_dir: str | Path) -> pd.DataFrame:
                 "Fichiers contenant la métrique": total_with_metric,
                 "% complétude (parmi fichiers où présente)": completeness,
             }
+        )
+
+    if not rows:
+        # Aucun fichier exploitable (ex. fichiers présents mais ignorés car colonnes manquantes).
+        return pd.DataFrame(
+            columns=[
+                "Code indicateur",
+                "Thématique",
+                "Métrique",
+                "Occurrences renseignées",
+                "Fichiers contenant la métrique",
+                "% complétude (parmi fichiers où présente)",
+            ]
         )
 
     result_df = pd.DataFrame(rows)

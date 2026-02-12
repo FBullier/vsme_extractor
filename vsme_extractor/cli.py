@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 from pathlib import Path
@@ -29,6 +30,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--count",
         dest="count_dir",
         help="Dossier contenant des fichiers .vsme.xlsx (pour calculer la complétude).",
+    )
+
+    # Retrieval method (selection des extraits/pages avant appel LLM)
+    env_retrieval = (os.getenv("VSME_RETRIEVAL_METHOD") or "count").strip()
+    parser.add_argument(
+        "--retrieval-method",
+        dest="retrieval_method",
+        default=env_retrieval,
+        choices=["count", "count_score", "bm25", "bm25_souple"],
+        help=(
+            "Méthode de sélection des extraits/pages avant appel LLM. "
+            "Par défaut: count. Peut aussi être définie via VSME_RETRIEVAL_METHOD."
+        ),
+    )
+
+    parser.add_argument(
+        "--codes",
+        dest="code_vsme_list",
+        default=None,
+        help=(
+            "Liste de codes `code_vsme` à extraire (surcharge VSME_CODE_VSME_LIST si fourni). "
+            "Séparateurs acceptés : virgule, point-virgule, espaces. "
+            "Exemple: --codes B3_1,B3_2,C1_1"
+        ),
     )
     list_group = parser.add_mutually_exclusive_group()
     list_group.add_argument(
@@ -96,6 +121,11 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = build_parser()
     ns = parser.parse_args(argv)
+
+    # Option CLI : la liste de codes fournie surcharge la variable d'environnement.
+    # Cela permet d'utiliser un `.env` générique tout en forçant une sélection ponctuelle.
+    if ns.code_vsme_list is not None and str(ns.code_vsme_list).strip() != "":
+        os.environ["VSME_CODE_VSME_LIST"] = str(ns.code_vsme_list).strip()
 
     configure_logging(
         level=ns.log_level,
@@ -199,22 +229,114 @@ def main(argv: list[str] | None = None) -> None:
         logger.error("Erreur : chemin introuvable : %s", target)
         raise SystemExit(1)
 
-    extractor = VSMExtractor()
+    extractor = VSMExtractor(retrieval_method=ns.retrieval_method)
+
+    # Format de sortie contrôlé via .env
+    # - xlsx (défaut) : export Excel
+    # - json : export JSON
+    output_format = (os.getenv("VSME_OUTPUT_FORMAT") or "xlsx").strip().lower()
+    if output_format not in {"xlsx", "json"}:
+        output_format = "xlsx"
+
+    include_json_status = (
+        parse_env_bool(os.getenv("VSME_OUTPUT_JSON_INCLUDE_STATUS"))
+        if output_format == "json"
+        else False
+    )
+
+    def _missing_requested_codes(codes_raw: str | None) -> list[str] | None:
+        """Retourne la liste (ordonnée) des codes demandés absents du référentiel indicateurs."""
+        if codes_raw is None:
+            return None
+        codes_raw = str(codes_raw).strip()
+        if codes_raw == "":
+            return None
+
+        requested = [c.strip() for c in re.split(r"[\s,;]+", codes_raw) if c.strip()]
+        if not requested:
+            return None
+
+        try:
+            all_rows = get_indicators(apply_env_filter=False)
+            available = {
+                str(r.get("code_vsme") or "").strip() for r in all_rows if r.get("code_vsme")
+            }
+        except Exception:
+            return None
+
+        missing = [c for c in requested if c not in available]
+        return missing or []
 
     # -------- Un fichier PDF --------
     if target.is_file() and target.suffix.lower() == ".pdf":
         logger.info("PDF: %s", target)
         logger.info("=== Extraction (single) : %s ===", target.name)
 
-        df, stats = extractor.extract_from_pdf(str(target))
-        out_path = target.with_suffix(".vsme.xlsx")
-        df.to_excel(out_path, index=False)
+        # Trace l'état des filtres réellement appliqués (utile pour interpréter un JSON partiel).
+        code_list_effective = (os.getenv("VSME_CODE_VSME_LIST") or "").strip() or None
+        indicators_path_effective = (os.getenv("VSM_INDICATORS_PATH") or "").strip() or None
+        missing_codes = _missing_requested_codes(code_list_effective)
+
+        try:
+            df, stats = extractor.extract_from_pdf(str(target))
+            extraction_error = None
+            completed = True
+        except Exception as e:
+            df = None
+            stats = None
+            extraction_error = {
+                "type": e.__class__.__name__,
+                "message": str(e),
+            }
+            completed = False
+        if output_format == "json":
+            out_path = target.with_suffix(".vsme.json")
+            payload: dict[str, object] = {"pdf": str(target)}
+            if include_json_status:
+                payload["status"] = {
+                    "completed": completed,
+                    "error": extraction_error,
+                    "filters": {
+                        "VSME_CODE_VSME_LIST": code_list_effective,
+                        "VSM_INDICATORS_PATH": indicators_path_effective,
+                    },
+                    "missing_codes": missing_codes,
+                }
+            payload["results"] = (
+                [] if df is None else df.to_dict(orient="records")
+            )
+            payload["stats"] = (
+                None
+                if stats is None
+                else {
+                    "total_input_tokens": stats.total_input_tokens,
+                    "total_output_tokens": stats.total_output_tokens,
+                    "total_cost_eur": stats.total_cost_eur,
+                }
+            )
+            out_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        else:
+            if df is None or stats is None:
+                logger.error(
+                    "Extraction échouée, aucun export Excel produit | error=%s",
+                    extraction_error,
+                )
+                raise SystemExit(2)
+            out_path = target.with_suffix(".vsme.xlsx")
+            df.to_excel(out_path, index=False)
 
         logger.info("Export: %s", out_path)
-        logger.info("Tokens input : %s", stats.total_input_tokens)
-        logger.info("Tokens output: %s", stats.total_output_tokens)
-        logger.info("Coût total   : %.4f €", stats.total_cost_eur)
-        logger.info("=== Extraction terminée : %s ===", target.name)
+        if stats is not None:
+            logger.info("Tokens input : %s", stats.total_input_tokens)
+            logger.info("Tokens output: %s", stats.total_output_tokens)
+            logger.info("Coût total   : %.4f €", stats.total_cost_eur)
+            logger.info("=== Extraction terminée : %s ===", target.name)
+        else:
+            logger.error("=== Extraction interrompue : %s ===", target.name)
+            raise SystemExit(2)
         return
 
     # -------- Un dossier --------
@@ -227,15 +349,70 @@ def main(argv: list[str] | None = None) -> None:
         for pdf in pdfs:
             logger.info("PDF: %s", pdf)
             logger.info("=== Extraction : %s ===", pdf.name)
-            df, stats = extractor.extract_from_pdf(str(pdf))
-            out_path = pdf.with_suffix(".vsme.xlsx")
-            df.to_excel(out_path, index=False)
+            code_list_effective = (os.getenv("VSME_CODE_VSME_LIST") or "").strip() or None
+            indicators_path_effective = (os.getenv("VSM_INDICATORS_PATH") or "").strip() or None
+            missing_codes = _missing_requested_codes(code_list_effective)
+
+            try:
+                df, stats = extractor.extract_from_pdf(str(pdf))
+                extraction_error = None
+                completed = True
+            except Exception as e:
+                df = None
+                stats = None
+                extraction_error = {
+                    "type": e.__class__.__name__,
+                    "message": str(e),
+                }
+                completed = False
+            if output_format == "json":
+                out_path = pdf.with_suffix(".vsme.json")
+                payload: dict[str, object] = {"pdf": str(pdf)}
+                if include_json_status:
+                    payload["status"] = {
+                        "completed": completed,
+                        "error": extraction_error,
+                        "filters": {
+                            "VSME_CODE_VSME_LIST": code_list_effective,
+                            "VSM_INDICATORS_PATH": indicators_path_effective,
+                        },
+                        "missing_codes": missing_codes,
+                    }
+                payload["results"] = (
+                    [] if df is None else df.to_dict(orient="records")
+                )
+                payload["stats"] = (
+                    None
+                    if stats is None
+                    else {
+                        "total_input_tokens": stats.total_input_tokens,
+                        "total_output_tokens": stats.total_output_tokens,
+                        "total_cost_eur": stats.total_cost_eur,
+                    }
+                )
+                out_path.write_text(
+                    json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            else:
+                if df is None or stats is None:
+                    logger.error(
+                        "Extraction échouée, aucun export Excel produit | pdf=%s | error=%s",
+                        pdf,
+                        extraction_error,
+                    )
+                    continue
+                out_path = pdf.with_suffix(".vsme.xlsx")
+                df.to_excel(out_path, index=False)
 
             logger.info("Export: %s", out_path)
-            logger.info("Tokens input : %s", stats.total_input_tokens)
-            logger.info("Tokens output: %s", stats.total_output_tokens)
-            logger.info("Coût total   : %.4f €", stats.total_cost_eur)
-            logger.info("=== Extraction terminée : %s ===", pdf.name)
+            if stats is not None:
+                logger.info("Tokens input : %s", stats.total_input_tokens)
+                logger.info("Tokens output: %s", stats.total_output_tokens)
+                logger.info("Coût total   : %.4f €", stats.total_cost_eur)
+                logger.info("=== Extraction terminée : %s ===", pdf.name)
+            else:
+                logger.error("=== Extraction interrompue : %s ===", pdf.name)
 
         return
 
