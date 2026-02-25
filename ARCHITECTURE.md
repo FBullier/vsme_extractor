@@ -23,11 +23,14 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 ├── streamlit_app/
 ├── exemples/
 │   ├── example_extract_pdf.py
+│   ├── example_cli_extract_pdf_json.py
+│   ├── example_cli_extract_pdf_xlsx.py
 │   └── example_usage.ipynb
 └── vsme_extractor/
     ├── __init__.py
     ├── cli.py
     ├── config.py
+    ├── error_reporting.py
     ├── extraction.py
     ├── indicators.py
     ├── llm_client.py
@@ -37,6 +40,8 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
     ├── prompts.py
     ├── retrieval.py
     └── stats.py
+    └── data/
+        └── table_codes_portail_rse.csv
 ```
 
 ---
@@ -44,12 +49,13 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 ## 2) Points d’entrée
 
 ### 2.1 CLI
-- Point d’entrée : [`main()`](vsme_extractor/cli.py:87) dans [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1)
+- Point d’entrée : [`main()`](vsme_extractor/cli.py:288) dans [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1)
 - Installée via le script console défini dans [`pyproject.toml`](pyproject.toml:1) (commande `vsme-extract`)
 - Usages principaux :
   - **Extraction** : `vsme-extract <fichier.pdf|dossier/>`
   - **Stats** : `vsme-extract --count <dossier_resultats>`
   - **Listing** : `vsme-extract --list-current-indicators` / `vsme-extract --list-all-indicators`
+  - **Formats de sortie** : `--output-format json|xlsx` (défaut : `json`) (voir [`build_parser()`](vsme_extractor/cli.py:108)).
 
 ### 2.2 API Python (package)
 - API publique exposée dans [`vsme_extractor/__init__.py`](vsme_extractor/__init__.py:1)
@@ -68,9 +74,33 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
    - `langdetect` est initialisé avec un seed global pour être déterministe.
 5. Pour chaque indicateur :
    - (optionnel) traduction des mots-clés via LLM avec **cache** interne (évite des appels répétés)
-   - sélection d’extraits pertinents via [`find_relevant_snippets()`](vsme_extractor/retrieval.py:240) avec `method="count"` (défaut) ou `method="count_refine"`
+   - sélection d’extraits pertinents via [`find_relevant_snippets_with_details()`](vsme_extractor/pipeline.py:287) avec `method="count"` (défaut) ou `method="count_refine"`
+   - si aucun extrait n’est jugé pertinent, l’extracteur renvoie **NA** et évite un appel LLM (pas de fallback sur le début du document) (voir [`VSMExtractor.extract_from_pdf()`](vsme_extractor/pipeline.py:331))
    - extraction LLM via [`extract_value_for_metric()`](vsme_extractor/extraction.py:9), avec parsing robuste et tentative de “repair” JSON (optionnelle)
-6. Les résultats sont agrégés dans un `DataFrame`, exportés en `.vsme.xlsx`, et les coûts/tokens sont renvoyés via [`ExtractionStats`](vsme_extractor/pipeline.py:28)
+6. Les résultats sont agrégés dans un `DataFrame`, puis exportés selon le format CLI :
+   - **JSON** : `<pdf>.vsme.json` (défaut)
+   - **Excel** : `<pdf>.vsme.xlsx` (si `--output-format xlsx`)
+   Les coûts/tokens sont renvoyés via [`ExtractionStats`](vsme_extractor/pipeline.py:31).
+
+### 3.1 Sortie JSON (CLI)
+Quand `--output-format json` (défaut), la CLI écrit un JSON avec :
+- `pdf`: chemin du PDF
+- `results`: liste des indicateurs (une ligne par indicateur)
+- `stats`: tokens + coût
+- `status` (optionnel) : bloc de statut (activé par défaut, désactivable via `--json-no-status`) (voir [`build_parser()`](vsme_extractor/cli.py:108)).
+
+Par défaut la CLI **retire** les champs de debug retrieval (pour limiter la taille du JSON) via [`_strip_retrieval_details()`](vsme_extractor/cli.py:97). Ils peuvent être inclus via `--json-include-retrieval-details`.
+
+### 3.2 Enrichissement RSE (CLI)
+Si le fichier packagé [`vsme_extractor/data/table_codes_portail_rse.csv`](vsme_extractor/data/table_codes_portail_rse.csv:1) est présent, la CLI enrichit chaque ligne d’indicateur JSON avec :
+- `matched_rse_code`
+- `matched_rse_champs_id`
+- `matched_rse_colonne_id`
+
+Chargement + jointure : [`_load_rse_mapping()`](vsme_extractor/cli.py:27) et [`_enrich_results_with_rse()`](vsme_extractor/cli.py:71).
+
+### 3.3 Rapports d’erreur (CLI)
+En cas d’échec d’initialisation ou d’extraction, la CLI écrit un rapport JSON d’erreur (à côté du PDF, ou dans le dossier target) via [`build_error_report()`](vsme_extractor/cli.py:20) / [`write_error_report()`](vsme_extractor/cli.py:20), implémentés dans [`vsme_extractor/error_reporting.py`](vsme_extractor/error_reporting.py:1).
 
 ---
 
@@ -97,7 +127,10 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 
 ### Package [`vsme_extractor/`](vsme_extractor/__init__.py:1)
 - [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1)
-  CLI installable (commande `vsme-extract`) : parsing des args, configuration logging, appels à l’API du package.
+   CLI installable (commande `vsme-extract`) : parsing des args, configuration logging, appels à l’API du package.
+
+- [`vsme_extractor/error_reporting.py`](vsme_extractor/error_reporting.py:1)
+  Génération/écriture d’un rapport d’erreur JSON côté CLI (évite d’inonder la console avec un traceback par défaut).
 
 - [`vsme_extractor/config.py`](vsme_extractor/config.py:1)
   Configuration LLM + paramètres de coût (variables d’environnement) via [`load_llm_config()`](vsme_extractor/config.py:18).
