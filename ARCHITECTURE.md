@@ -68,7 +68,7 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
    - `langdetect` est initialisé avec un seed global pour être déterministe.
 5. Pour chaque indicateur :
    - (optionnel) traduction des mots-clés via LLM avec **cache** interne (évite des appels répétés)
-   - sélection d’extraits pertinents via [`find_relevant_snippets()`](vsme_extractor/retrieval.py:10) avec `method="count"` (défaut) ou `method="bm25"`
+   - sélection d’extraits pertinents via [`find_relevant_snippets()`](vsme_extractor/retrieval.py:240) avec `method="count"` (défaut) ou `method="count_refine"`
    - extraction LLM via [`extract_value_for_metric()`](vsme_extractor/extraction.py:9), avec parsing robuste et tentative de “repair” JSON (optionnelle)
 6. Les résultats sont agrégés dans un `DataFrame`, exportés en `.vsme.xlsx`, et les coûts/tokens sont renvoyés via [`ExtractionStats`](vsme_extractor/pipeline.py:28)
 
@@ -123,7 +123,10 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
   Chargement PDF via [`load_pdf()`](vsme_extractor/pdf_loader.py:8).
 
 - [`vsme_extractor/retrieval.py`](vsme_extractor/retrieval.py:1)  
-  Retrieval “lexical” simple (comptage d’occurrences de tokens) via [`find_relevant_snippets()`](vsme_extractor/retrieval.py:5).
+  Retrieval “lexical” :
+  - `count` (comptage d’occurrences de tokens)
+  - `count_refine` (candidats via `count` puis ranking TF‑IDF n‑grams)
+   via [`find_relevant_snippets()`](vsme_extractor/retrieval.py:240).
 
 - [`vsme_extractor/indicators.py`](vsme_extractor/indicators.py:1)  
   Chargement de la liste des indicateurs via [`get_indicators()`](vsme_extractor/indicators.py:20) :

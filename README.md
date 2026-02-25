@@ -19,7 +19,7 @@ Les exemples d’utilisation “librairie” (script + notebook) sont disponible
 - Estimation des tokens (et du coût estimé en euros) par exécution.
 - Logging configurable (stdout et/ou fichier), pour faciliter le debug et l’exploitation.
 - Gestion optionnelle du rate limit (HTTP 429) avec attente et retry configurable.
-- Plusieurs méthodes de sélection d’extraits (retrieval) avant appel LLM : `count`, `count_score`, `bm25`, `bm25_souple`.
+- Plusieurs méthodes de sélection d’extraits (retrieval) avant appel LLM : `count`, `count_refine`.
 
 ---
 
@@ -85,38 +85,61 @@ uv pip install .
 
 Le projet lit la configuration via des variables d’environnement et charge automatiquement un fichier [`.env`](.env:1) au lancement de la CLI et des exemples (via `python-dotenv`).
 
+Un exemple complet (avec des valeurs “recommandées”) est fourni dans [`.env.example`](.env.example:1).
+
 Variables principales :
-- `SCW_API_KEY` : clé API Scaleway (obligatoire).
-- `SCW_BASE_URL` : URL base (défaut : endpoint Scaleway dans le code).
-- `SCW_MODEL_NAME` : nom du modèle (défaut : `gpt-oss-120b`).
-- `VSME_API_PROTOCOL` : protocole OpenAI-compatible (`chat.completions` ou `responses`, selon support provider).
-- `VSME_INVOKE_MODE` : mode d’invocation LLM (`invoke` ou `invoke_stream`).
-- `VSM_INPUT_COST_EUR` : coût €/million de tokens en entrée (défaut : `0.15`).
-- `VSM_OUTPUT_COST_EUR` : coût €/million de tokens en sortie (défaut : `0.60`).
-- `VSM_INDICATORS_PATH` : chemin optionnel vers un CSV d’indicateurs (sinon fallback vers le CSV packagé, par défaut [`vsme_extractor/data/indicateurs_vsme.csv`](vsme_extractor/data/indicateurs_vsme.csv:1)).
+
+- `SCW_API_KEY` : clé API Scaleway (**obligatoire**, pas de défaut) (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
+- `SCW_BASE_URL` : URL base (défaut : `https://api.scaleway.ai/06f1a171-1eef-4d8b-aed5-b78189d17335/v1`) (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
+- `SCW_MODEL_NAME` : nom du modèle (défaut : `gpt-oss-120b`) (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
+
+- `VSME_API_PROTOCOL` : protocole OpenAI-compatible (défaut : `chat.completions`). Valeurs supportées : `chat.completions` | `responses` (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
+- `VSME_INVOKE_MODE` : mode d’invocation LLM (défaut : `invoke`). Valeurs supportées : `invoke` | `invoke_stream` (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
+
+- `VSM_INPUT_COST_EUR` : coût €/million de tokens en entrée (défaut : `0.15`) (voir [`EURO_COST_PER_MILLION_INPUT`](vsme_extractor/config.py:7)).
+- `VSM_OUTPUT_COST_EUR` : coût €/million de tokens en sortie (défaut : `0.60`) (voir [`EURO_COST_PER_MILLION_OUTPUT`](vsme_extractor/config.py:8)).
+
+- `VSM_INDICATORS_PATH` : chemin optionnel vers un CSV d’indicateurs.
+  - défaut : CSV packagé [`vsme_extractor/data/indicateurs_vsme.csv`](vsme_extractor/data/indicateurs_vsme.csv:1) (voir [`DEFAULT_INDICATORS_PATH`](vsme_extractor/indicators.py:17)).
 - `VSME_CODE_VSME_LIST` : liste optionnelle de `code_vsme` à extraire (séparateurs acceptés : virgule, point-virgule, espaces).
-  - si `VSME_CODE_VSME_LIST` est vide/absent : l’extracteur prend par défaut les lignes dont `defaut == 1`.
+  - défaut (si vide/absent) : l’extracteur conserve les lignes dont `defaut == 1` (voir [`get_indicators()`](vsme_extractor/indicators.py:20)).
+
+Variables de sortie CLI (optionnelles) :
+- `VSME_OUTPUT_FORMAT` : `json` (défaut) ou `xlsx`.
+  - Peut aussi être forcé via l’option CLI `--output-format` (voir [`build_parser()`](vsme_extractor/cli.py:96)).
+- `VSME_OUTPUT_JSON_INCLUDE_STATUS` : active le bloc `status` dans le JSON.
+  - défaut : activé (peut être désactivé via `--json-no-status` ou `VSME_OUTPUT_JSON_INCLUDE_STATUS=0`) (voir [`build_parser()`](vsme_extractor/cli.py:96)).
+
+Variables JSON (optionnelles) :
+- `VSME_OUTPUT_JSON_INCLUDE_RETRIEVAL_DETAILS` : si `1`, conserve dans chaque indicateur (`results`) les champs de debug retrieval :
+  - `Pages candidates`
+  - `Pages conservées`
+  - `Retrieval par page`
+  Par défaut (`0`), ces champs ne sont pas inclus dans le JSON (voir [`build_parser()`](vsme_extractor/cli.py:96) et le filtrage dans [`main()`](vsme_extractor/cli.py:205)).
+
+Enrichissement RSE (JSON) :
+- Quand `VSME_OUTPUT_FORMAT=json`, la CLI enrichit chaque indicateur avec des champs issus de la table de correspondance [`vsme_extractor/data/table_codes_portail_rse.csv`](vsme_extractor/data/table_codes_portail_rse.csv:1) (jointure sur `code_vsme` / `Code indicateur`) :
+  - `matched_rse_code`
+  - `matched_rse_champs_id`
+  - `matched_rse_colonne_id`
 
 Variables de robustesse (optionnelles) :
 - Rate limit (HTTP 429) :
-  - `VSME_RATE_LIMIT_MAX_RETRIES` : nombre de réessais après un 429.
-  - `VSME_RATE_LIMIT_RETRY_SLEEP_S` : attente (secondes) avant retry.
-  - `VSME_RATE_LIMIT_USE_RETRY_AFTER` : si l’en-tête HTTP `Retry-After` est présent, l’utiliser.
+  - `VSME_RATE_LIMIT_MAX_RETRIES` : nombre de réessais après un 429 (défaut : `0` = aucun retry) (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
+  - `VSME_RATE_LIMIT_RETRY_SLEEP_S` : attente (secondes) avant retry (défaut : `60`) (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
+  - `VSME_RATE_LIMIT_USE_RETRY_AFTER` : si l’en-tête HTTP `Retry-After` est présent, l’utiliser (défaut : `1`) (voir [`load_llm_config()`](vsme_extractor/config.py:28)).
 - Healthcheck LLM au démarrage (utile pour diagnostiquer l’environnement) :
-  - `VSME_LLM_HEALTHCHECK` : active/désactive le check.
-  - `VSME_LLM_HEALTHCHECK_STRICT` : si `0`, un échec du check n’empêche pas le démarrage.
-
-Variables de sortie CLI (optionnelles) :
-- `VSME_OUTPUT_FORMAT` : `xlsx` (défaut) ou `json`.
-- `VSME_OUTPUT_JSON_INCLUDE_STATUS` : si `1`, ajoute un bloc `status` dans la sortie JSON.
+  - `VSME_LLM_HEALTHCHECK` : active/désactive le check (défaut : `1`) (voir [`VSMExtractor.__init__()`](vsme_extractor/pipeline.py:72)).
+  - `VSME_LLM_HEALTHCHECK_STRICT` : si `0`, un échec du check n’empêche pas le démarrage (défaut : `1`) (voir [`VSMExtractor.__init__()`](vsme_extractor/pipeline.py:72)).
 
 Variables de retrieval (optionnelles) :
-- `retrieval_method` est configurable côté code/app (voir [`VSMExtractor`](vsme_extractor/pipeline.py:65) et l’app Streamlit).
-- Les méthodes `count_score` / `bm25_souple` peuvent filtrer des pages jugées non pertinentes ; si rien ne passe, l’indicateur est renvoyé à `NA` sans appel LLM.
+- `retrieval_method` est configurable côté code/app (voir [`VSMExtractor`](vsme_extractor/pipeline.py:70) et l’app Streamlit).
+- `VSME_RETRIEVAL_METHOD` : méthode utilisée par la CLI (défaut : `count`) (voir [`build_parser()`](vsme_extractor/cli.py:26)).
+- La méthode `count_refine` peut filtrer des pages jugées non pertinentes ; si rien ne passe, l’indicateur est renvoyé à `NA` sans appel LLM.
 
 ### Méthodes de retrieval (sélection des extraits/pages)
 
-Ces méthodes sont implémentées dans [`find_relevant_snippets()`](vsme_extractor/retrieval.py:1) et utilisées par [`VSMExtractor`](vsme_extractor/pipeline.py:65).
+Ces méthodes sont implémentées dans [`find_relevant_snippets()`](vsme_extractor/retrieval.py:240) et utilisées par [`VSMExtractor`](vsme_extractor/pipeline.py:70).
 
 - `count` (défaut)
   - Principe : comptage d’occurrences (substring) des mots-clés dans chaque page.
@@ -130,37 +153,20 @@ Ces méthodes sont implémentées dans [`find_relevant_snippets()`](vsme_extract
   - Avantages : robuste sur texte bruité/OCR, simple et efficace.
   - Limites : peut produire des faux positifs (occurrences fortuites), pas de vraie notion de « similarité ».
 
-- `count_score`
-  - Principe : part de `count` pour générer des candidats, puis applique des seuils/heuristiques de filtrage (score relatif, couverture des termes, densité, etc.).
-  - Portée : comme `count`, le scoring part de **toutes les pages**, puis conserve les `k` meilleures (par défaut `k=6`) avant filtrage/tri.
-    Si aucune page ne passe les seuils, l’indicateur est renvoyé `NA` sans appel LLM.
-  - Sélection :
-    - étape 1 : on prend un « pool » de candidats via `count` (par défaut ~24 meilleures pages) ;
-    - étape 2 : sur ces candidats, on filtre avec des seuils (score relatif vs meilleur candidat, couverture des termes, densité relative, nombre minimal de termes trouvés) ;
-    - tri décroissant puis conservation des `k` premières.
-  - Avantages : réduit les faux positifs ; permet de renvoyer `NA` si aucune page ne passe les seuils (évite un appel LLM inutile).
-  - Limites : plus sensible au réglage des seuils ; peut réduire le rappel si les mots-clés sont incomplets.
-
-- `bm25`
-  - Principe : scoring lexical BM25 basé sur une tokenisation (mots) et une pondération TF/IDF.
-  - Avantages : meilleure notion de « pertinence » que `count` quand la tokenisation est propre.
-  - Limites : peut être fragile sur PDFs bruités (ponctuation, césures, OCR) car la tokenisation influence fortement le score.
-
-- `bm25_souple`
-  - Principe : sélectionne d’abord des pages candidates via `count`, puis calcule un BM25 avec tokenisation/normalisation plus tolérante.
-  - Avantages : combine la robustesse de `count` (rappel) et le ranking de BM25 (précision).
-  - Limites : plus coûteux que `count` seul ; dépend encore de la qualité du texte.
+- `count_refine`
+  - Principe : sélectionne d’abord des pages candidates via `count`, puis applique un ranking TF‑IDF *word n‑grams* (1–3) avec tokenisation souple, et conserve uniquement les pages dont le score est ≥ `rel_thr` (par défaut `0.40`) du meilleur score.
+  - Particularité : si aucune page ne passe le seuil relatif, l’indicateur est renvoyé `NA` sans appel LLM.
 
 Variables de logging (optionnelles, “opt-in”, utilisées par la CLI et les exemples) :
 
 Logs applicatifs (audit “normal”) :
-- `SME_LOG_LEVEL` : `DEBUG|INFO|WARNING|ERROR`
-- `VSME_LOG_FILE` : chemin vers un fichier log (optionnel)
-- `VSME_LOG_STDOUT` : `1|0` (true/false, yes/no, on/off)
+- `SME_LOG_LEVEL` : `DEBUG|INFO|WARNING|ERROR` (défaut CLI : `INFO`) (voir [`build_parser()`](vsme_extractor/cli.py:18)).
+- `VSME_LOG_FILE` : chemin vers un fichier log (optionnel, défaut : non défini) (voir [`build_parser()`](vsme_extractor/cli.py:18)).
+- `VSME_LOG_STDOUT` : `1|0` (true/false, yes/no, on/off) (défaut CLI : activé) (voir [`build_parser()`](vsme_extractor/cli.py:18)).
 
 Logs des *prompts* envoyés au LLM (audit “prompt”, **potentiellement sensible**) :
-- `VSME_PROMPT_FILE` : chemin vers un fichier dédié aux prompts (optionnel)
-- `VSME_PROMPT_STDOUT` : `1|0` (true/false, yes/no, on/off)
+- `VSME_PROMPT_FILE` : chemin vers un fichier dédié aux prompts (optionnel, défaut : non défini → prompts non loggués) (voir [`_configure_prompts_logger()`](vsme_extractor/llm_client.py:86)).
+- `VSME_PROMPT_STDOUT` : `1|0` (true/false, yes/no, on/off) (défaut : désactivé) (voir [`_env_bool()`](vsme_extractor/llm_client.py:43)).
 
 Notes :
 - Rotation des fichiers de logs : si `VSME_LOG_FILE` et/ou `VSME_PROMPT_FILE` sont configurés, les fichiers sont soumis à :
@@ -212,6 +218,16 @@ Deux tutoriels sont fournis dans [`exemples/`](exemples/example_extract_pdf.py:1
   python exemples/example_extract_pdf.py
   ```
 
+ - Script (extraction via la CLI, sortie JSON) : [`exemples/example_extract_pdf_json.py`](exemples/example_extract_pdf_json.py:1)
+   ```bash
+   .venv/bin/python exemples/example_extract_pdf_json.py
+   ```
+
+ - Script (extraction via la CLI, sortie XLSX) : [`exemples/example_extract_pdf_xlsx.py`](exemples/example_extract_pdf_xlsx.py:1)
+   ```bash
+   .venv/bin/python exemples/example_extract_pdf_xlsx.py
+   ```
+
 - Notebook (extraction PDF, batch dossier, stats complétude) : [`exemples/example_usage.ipynb`](exemples/example_usage.ipynb:1)
 
 > Les exemples chargent [`.env`](.env:1) (si présent) et peuvent activer le logging via `SME_LOG_LEVEL` / `VSME_LOG_FILE` / `VSME_LOG_STDOUT`.
@@ -239,15 +255,30 @@ Après installation via `pip install .` :
   ```bash
   vsme-extract ./chemin/rapport.pdf
   ```
+  Sortie par défaut : `./chemin/rapport.vsme.json`
+
+  Forcer XLSX :
+  ```bash
+  vsme-extract ./chemin/rapport.pdf --output-format xlsx
+  ```
   Sortie : `./chemin/rapport.vsme.xlsx`
 
-  Option JSON (via `.env`) :
-  - `VSME_OUTPUT_FORMAT=json` → sortie `./chemin/rapport.vsme.json`
-  - si `VSME_OUTPUT_JSON_INCLUDE_STATUS=1`, la sortie JSON contient :
+  Options JSON :
+  - `--output-format json` (défaut)
+  - `--json-include-status` (défaut) / `--json-no-status`
+  - (alternativement via `.env`) `VSME_OUTPUT_FORMAT` et `VSME_OUTPUT_JSON_INCLUDE_STATUS`
+
+  Si le bloc `status` est activé, la sortie JSON contient :
     - `status.completed` (bool)
     - `status.error` (type/message si exception)
     - `status.filters` (trace des filtres effectifs)
     - `status.missing_codes` (codes demandés absents du CSV indicateurs)
+
+  Détails retrieval (optionnel) :
+  - par défaut, les champs `Pages candidates`, `Pages conservées`, `Retrieval par page` **ne sont pas inclus** dans chaque indicateur du JSON
+  - pour les inclure :
+    - `vsme-extract ./chemin/rapport.pdf --json-include-retrieval-details`
+    - ou `VSME_OUTPUT_JSON_INCLUDE_RETRIEVAL_DETAILS=1`
 
 - Extraction d’un dossier de PDFs :
   ```bash
@@ -293,7 +324,7 @@ Notes :
 
 ⚠️ Fenêtre de contexte / risque de dépassement :
 - Par indicateur, le contexte envoyé au LLM est limité à **6 extraits/pages** (voir la limite `[:6]` dans [`extract_value_for_metric()`](vsme_extractor/extraction.py:23)).
-- Si le retrieval ne trouve rien, fallback : on utilise un extrait du début du document (`full_text[:10000]`) dans [`extract_from_pdf()`](vsme_extractor/pipeline.py:190).
+- Si le retrieval ne trouve rien (`ctx_selected` vide), l’indicateur est renvoyé à `NA` **sans fallback** (pas d’utilisation du début du document), afin de réduire les faux positifs (voir [`extract_from_pdf()`](vsme_extractor/pipeline.py:321)).
 - Malgré ces limites, il existe un risque théorique de dépasser la fenêtre de contexte si les pages sont très longues (tokens ≠ caractères). Les logs “Indicator context …” permettent de surveiller ce point.
 
 #### Audit des prompts envoyés au LLM (optionnel)
@@ -335,6 +366,10 @@ Optionnellement, un fichier JSON `.vsme.json` peut être produit (voir `VSME_OUT
 Schéma JSON (quand activé) :
 - `pdf` : chemin du PDF
 - `results` : liste d’objets avec les colonnes de sortie
+- Chaque indicateur (`results[i]`) inclut aussi (si disponible) les champs RSE :
+  - `matched_rse_code`, `matched_rse_champs_id`, `matched_rse_colonne_id` (voir [`vsme_extractor/data/table_codes_portail_rse.csv`](vsme_extractor/data/table_codes_portail_rse.csv:1))
+- Les champs retrieval suivants sont optionnels (désactivés par défaut) :
+  - `Pages candidates`, `Pages conservées`, `Retrieval par page`
 - `stats` : compteurs tokens + coût estimé
 - `status` (si `VSME_OUTPUT_JSON_INCLUDE_STATUS=1`) :
   - `completed` : bool
@@ -407,7 +442,7 @@ Elle permet d'uploader un PDF, de choisir des indicateurs (`code_vsme`) et de la
 - PDFs scannés (image) : l’extraction texte peut être très mauvaise sans OCR.
 - Qualité des réponses LLM : le modèle peut parfois renvoyer un JSON invalide ou une valeur incorrecte si le contexte est ambigu. Le parsing inclut un fallback + une tentative de “repair” JSON dans [`extract_value_for_metric()`](vsme_extractor/extraction.py:9).
 - Coûts : l’extraction dépend du nombre d’indicateurs, de la longueur du document, et des appels additionnels éventuels (traduction/correction JSON).
-- Retrieval : par défaut, retrieval “count” ; une alternative BM25 existe côté code via `method="bm25"` dans [`find_relevant_snippets()`](vsme_extractor/retrieval.py:10) et `retrieval_method="bm25"` dans [`VSMExtractor`](vsme_extractor/pipeline.py:56).
+- Retrieval : par défaut, retrieval “count” ; l’alternative “filtrante” est `count_refine` (voir [`find_relevant_snippets()`](vsme_extractor/retrieval.py:240) et [`VSMExtractor`](vsme_extractor/pipeline.py:70)).
 - Logs : utilisez `--log-level DEBUG` et/ou `--log-file` pour diagnostiquer un cas.
 - Rate limit (HTTP 429) : en cas de limite « N requêtes/minute », activer un retry avec attente via `VSME_RATE_LIMIT_*`.
 - Streamlit upload (403) : selon l’environnement, il peut être nécessaire d’ajuster la config locale Streamlit (voir [`.streamlit/config.toml`](.streamlit/config.toml:1)).
