@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import tempfile
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 from dotenv import find_dotenv, load_dotenv
 
 from vsme_extractor import VSMExtractor
+from vsme_extractor.error_reporting import build_error_report, write_error_report
 from vsme_extractor.indicators import get_indicators
 from vsme_extractor.logging_utils import configure_logging_from_env
+
+
+logger = logging.getLogger(__name__)
 
 
 @st.cache_resource
@@ -52,15 +58,32 @@ def load_all_indicators() -> pd.DataFrame:
 
 
 @st.cache_resource
-def get_extractor() -> VSMExtractor:
-    """Construit l'extracteur (cache Streamlit pour éviter de ré-instancier à chaque action)."""
-    return VSMExtractor()
+def get_extractor(*, retrieval_method: str, top_k_snippets: int) -> VSMExtractor:
+    """Construit l'extracteur (cache Streamlit) sans mutation d'instance.
+
+    Streamlit peut servir plusieurs sessions en parallèle.
+    On évite de muter une ressource cachée (risque de fuite de paramètres entre utilisateurs).
+    """
+
+    return VSMExtractor(
+        retrieval_method=retrieval_method,  # type: ignore[arg-type]
+        top_k_snippets=int(top_k_snippets),
+    )
 
 
 def main() -> None:
     """Point d'entrée Streamlit (UI upload -> sélection -> extraction -> affichage)."""
     # Charge le .env (utile pour SCW_API_KEY, etc.)
     load_dotenv(find_dotenv(usecwd=True), override=True)
+
+    # Streamlit: on évite que l'initialisation de l'extracteur fasse échouer l'app
+    # (ex: quota provider, LLM temporairement indisponible) et on évite aussi un appel LLM
+    # inutile au démarrage.
+    #
+    # Si vous voulez réactiver le healthcheck, définissez explicitement ces variables
+    # AVANT de lancer Streamlit (env shell), ou modifiez ce fichier.
+    os.environ["VSME_LLM_HEALTHCHECK"] = "0"
+    os.environ["VSME_LLM_HEALTHCHECK_STRICT"] = "0"
 
     # Active le logging applicatif si les variables d'env sont définies (opt-in).
     # Important dans Streamlit : on évite de configurer plusieurs fois (sinon doublons).
@@ -121,13 +144,14 @@ Cette application Streamlit permet :
         st.caption("Paramètres")
         retrieval_method = st.selectbox(
             "Retrieval",
-            options=["count", "count_score", "bm25", "bm25_souple"],
+            options=[
+                "count",
+                "count_refine",
+            ],
             index=0,
             help=(
                 "count = matching substring (robuste OCR). "
-                "count_score = count + filtrage (score relatif + coverage + densité). "
-                "bm25 = lexical strict. "
-                "bm25_souple = candidates via count puis BM25 avec tokenisation plus tolérante + seuils."
+                "count_refine = candidates via count puis TF‑IDF n‑grams, sans seuil absolu, avec filtrage relatif rel_thr=0.40 par défaut."
             ),
         )
         top_k = st.number_input(
@@ -169,12 +193,59 @@ Cette application Streamlit permet :
         )
 
         with st.spinner("Extraction en cours…"):
-            extractor = get_extractor()
-            # Ajuste dynamiquement quelques paramètres de l'instance.
-            extractor.retrieval_method = retrieval_method
-            extractor.top_k_snippets = int(top_k)
+            try:
+                extractor = get_extractor(
+                    retrieval_method=retrieval_method,
+                    top_k_snippets=int(top_k),
+                )
+            except Exception as e:
+                report_path = Path(tmp_path).with_suffix(".vsme.init.error.json")
+                payload = build_error_report(
+                    exc=e,
+                    stage="init",
+                    pdf=str(tmp_path),
+                    extractor=None,
+                    extra={"uploaded_name": uploaded.name},
+                )
+                write_error_report(report_path, payload)
+                logger.error(
+                    "Streamlit extractor init failed | uploaded=%s | error=%s: %s | report=%s",
+                    uploaded.name,
+                    e.__class__.__name__,
+                    str(e),
+                    str(report_path),
+                )
+                st.error(
+                    f"Initialisation échouée: {e.__class__.__name__}: {e}\nRapport: {report_path}"
+                )
+                return
 
-            df, stats = extractor.extract_from_pdf(tmp_path)
+            try:
+                df, stats = extractor.extract_from_pdf(tmp_path)
+            except Exception as e:
+                # Streamlit: éviter d'afficher un traceback à l'utilisateur.
+                # On écrit un rapport JSON en local et on affiche une erreur courte.
+                report_path = Path(tmp_path).with_suffix(".vsme.error.json")
+                payload = build_error_report(
+                    exc=e,
+                    stage="extract",
+                    pdf=str(tmp_path),
+                    extractor=extractor,
+                    extra={"uploaded_name": uploaded.name},
+                )
+                write_error_report(report_path, payload)
+
+                logger.error(
+                    "Streamlit extraction failed | uploaded=%s | error=%s: %s | report=%s",
+                    uploaded.name,
+                    e.__class__.__name__,
+                    str(e),
+                    str(report_path),
+                )
+                st.error(
+                    f"Extraction échouée: {e.__class__.__name__}: {e}\nRapport: {report_path}"
+                )
+                return
 
         st.success("Extraction terminée")
 
@@ -184,16 +255,27 @@ Cette application Streamlit permet :
         c3.metric("Coût total (€)", f"{stats.total_cost_eur:.4f}")
 
         st.subheader("Résultats")
+
+        # UI: hide heavy debug columns that clutter the table.
+        # (They remain present in the raw extraction output / JSON exports from the CLI.)
+        df_display = df.drop(
+            columns=[
+                "Pages candidates",
+                "Retrieval par page",
+            ],
+            errors="ignore",
+        )
+
         # Streamlit deprecates `use_container_width` in favor of `width`.
         # Keep backward compatibility depending on installed Streamlit version.
         try:
-            st.dataframe(df, width="stretch")
+            st.dataframe(df_display, width="stretch")
         except TypeError:
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df_display, use_container_width=True)
 
         # Download Excel
         buf = BytesIO()
-        df.to_excel(buf, index=False)
+        df_display.to_excel(buf, index=False)
         st.download_button(
             "Télécharger (.xlsx)",
             data=buf.getvalue(),
@@ -203,4 +285,28 @@ Cette application Streamlit permet :
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        # Sécurité : si une exception non prévue remonte jusqu'ici, Streamlit affiche
+        # un traceback très verbeux (terminal + UI). On préfère une erreur courte +
+        # un rapport JSON local.
+        report_path = Path("./tmp/streamlit_app.error.json")
+        payload = build_error_report(
+            exc=e,
+            stage="app",
+            pdf=None,
+            extractor=None,
+        )
+        write_error_report(report_path, payload)
+
+        logger.error(
+            "Streamlit app crashed | error=%s: %s | report=%s",
+            e.__class__.__name__,
+            str(e),
+            str(report_path),
+        )
+        st.error(
+            f"Erreur inattendue: {e.__class__.__name__}: {e}\nRapport: {report_path}"
+        )
+        st.stop()
