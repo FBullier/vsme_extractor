@@ -8,6 +8,31 @@ EURO_COST_PER_MILLION_INPUT = float(os.getenv("VSM_INPUT_COST_EUR", 0.15))
 EURO_COST_PER_MILLION_OUTPUT = float(os.getenv("VSM_OUTPUT_COST_EUR", 0.60))
 
 
+def _get_env_float(name: str, default: float) -> float:
+    """Parse a float env var safely.
+
+    If unset/empty/invalid, returns `default`.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return float(default)
+    raw = raw.strip()
+    if raw == "":
+        return float(default)
+    try:
+        return float(raw)
+    except Exception:
+        return float(default)
+
+
+# Optionnel : seuil relatif du retrieval `count_refine`.
+# Interprétation : une page est conservée si (score / best_score) >= rel_thr.
+# Intervalle attendu : [0.0, 1.0]
+VSME_RETRIEVAL_REL_THR = min(
+    1.0, max(0.0, _get_env_float("VSME_RETRIEVAL_REL_THR", 0.40))
+)
+
+
 @dataclass
 class LLMConfig:
     """Configuration du client LLM (API key, endpoint, modèle, prompt système)."""
@@ -49,7 +74,9 @@ def load_llm_config() -> LLMConfig:
     # Valeurs supportées :
     # - chat.completions (compat large)
     # - responses (nouvelle API OpenAI)
-    api_protocol = (os.getenv("VSME_API_PROTOCOL") or "chat.completions").strip().lower()
+    api_protocol = (
+        (os.getenv("VSME_API_PROTOCOL") or "chat.completions").strip().lower()
+    )
     if api_protocol not in {"chat.completions", "responses"}:
         api_protocol = "chat.completions"
 
@@ -74,10 +101,9 @@ def load_llm_config() -> LLMConfig:
     if rate_limit_retry_sleep_s < 0:
         rate_limit_retry_sleep_s = 0.0
 
-    rate_limit_use_retry_after = (
-        os.getenv("VSME_RATE_LIMIT_USE_RETRY_AFTER", "1").strip().lower()
-        in {"1", "true", "yes", "y", "on"}
-    )
+    rate_limit_use_retry_after = os.getenv(
+        "VSME_RATE_LIMIT_USE_RETRY_AFTER", "1"
+    ).strip().lower() in {"1", "true", "yes", "y", "on"}
 
     return LLMConfig(
         api_key=api_key,

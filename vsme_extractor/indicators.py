@@ -5,7 +5,7 @@ import os
 import re
 from importlib import resources
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import chardet
 import pandas as pd
@@ -75,6 +75,11 @@ def get_indicators(
         # - Else (missing/empty): keep only rows where `defaut` == 1
         codes_raw = (os.getenv("VSME_CODE_VSME_LIST") or "").strip()
         if codes_raw:
+            # Special value: "all" (or "*") disables filtering and keeps all indicators.
+            # This is useful for CLI usage: `--codes all`.
+            if codes_raw.lower() in {"all", "*"}:
+                records = df.to_dict(orient="records")  # type: ignore[call-overload]
+                return cast(List[Dict[str, Any]], records)
             if "code_vsme" not in df.columns:
                 logger.warning(
                     "VSME_CODE_VSME_LIST est défini mais la colonne 'code_vsme' est absente du CSV (%s). Aucun filtrage appliqué.",
@@ -94,4 +99,5 @@ def get_indicators(
                     path,
                 )
 
-    return df.to_dict(orient="records")
+    records = df.to_dict(orient="records")  # type: ignore[call-overload]
+    return cast(List[Dict[str, Any]], records)

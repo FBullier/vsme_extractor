@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 
-
 EXTRACTION_SYSTEM_PROMPT = """Tu es un assistant d'extraction de données ESG. 
 Ta tâche est d'extraire **uniquement la valeur demandée** depuis un contexte PDF d'entreprise.
 Règles:

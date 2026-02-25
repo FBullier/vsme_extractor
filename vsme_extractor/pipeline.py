@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import os
+import re
 import time
 from typing import Dict, Literal, Tuple
 
@@ -20,7 +21,7 @@ from .extraction import extract_value_for_metric
 from .indicators import get_indicators
 from .llm_client import LLM
 from .pdf_loader import load_pdf
-from .retrieval import find_relevant_snippets
+from .retrieval import find_relevant_snippets_with_details
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,9 @@ logger = logging.getLogger(__name__)
 class ExtractionStats:
     """Statistiques d'exécution (tokens et coût estimé)."""
 
+    total_indicators: int
+    indicators_llm_queried: int
+    indicators_value_found: int
     total_input_tokens: int
     total_output_tokens: int
     total_cost_eur: float
@@ -75,7 +79,8 @@ class VSMExtractor:
         temperature: float = 0.2,
         max_tokens: int = 512,
         retrieval_method: Literal[
-            "count", "count_score", "bm25", "bm25_souple"
+            "count",
+            "count_refine",
         ] = "count",
     ):
         """Initialise l'extracteur (LLM + paramètres de retrieval/extraction)."""
@@ -97,9 +102,8 @@ class VSMExtractor:
             "on",
         }
         hc_strict = (
-            (os.getenv("VSME_LLM_HEALTHCHECK_STRICT") or "1").strip().lower()
-            in {"1", "true", "yes", "y", "on"}
-        )
+            os.getenv("VSME_LLM_HEALTHCHECK_STRICT") or "1"
+        ).strip().lower() in {"1", "true", "yes", "y", "on"}
 
         if not hc_enabled:
             logger.info(
@@ -125,12 +129,31 @@ class VSMExtractor:
                     ok_text,
                 )
             except Exception:
-                logger.exception(
-                    "LLM check failed | model=%s | base_url=%s | strict=%s",
-                    self.config.model,
-                    self.config.base_url,
-                    hc_strict,
-                )
+                # Par défaut, on évite d'imprimer un traceback dans la sortie standard.
+                # (Le traceback reste accessible via des mécanismes dédiés côté CLI/app : rapport JSON d'erreur,
+                # ou via VSME_LOG_TRACEBACK=1 si besoin.)
+                log_tb = (os.getenv("VSME_LOG_TRACEBACK") or "0").strip().lower() in {
+                    "1",
+                    "true",
+                    "yes",
+                    "y",
+                    "on",
+                }
+                if log_tb:
+                    logger.error(
+                        "LLM check failed | model=%s | base_url=%s | strict=%s",
+                        self.config.model,
+                        self.config.base_url,
+                        hc_strict,
+                        exc_info=True,
+                    )
+                else:
+                    logger.error(
+                        "LLM check failed | model=%s | base_url=%s | strict=%s (enable traceback with VSME_LOG_TRACEBACK=1)",
+                        self.config.model,
+                        self.config.base_url,
+                        hc_strict,
+                    )
                 if hc_strict:
                     raise
 
@@ -138,7 +161,8 @@ class VSMExtractor:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.retrieval_method: Literal[
-            "count", "count_score", "bm25", "bm25_souple"
+            "count",
+            "count_refine",
         ] = retrieval_method
 
         # Cache de traduction des mots-clés : (lang, keywords) -> translated_keywords
@@ -181,14 +205,14 @@ class VSMExtractor:
 
         if lang == "fr":
             keywords_tag = "Mots clés"
-            must_have_tag = "à avoir"
         else:
             keywords_tag = "Keywords"
-            must_have_tag = "must have"
 
         results = []
         tot_in_tokens = 0
         tot_out_tokens = 0
+        llm_queried = 0
+        value_found = 0
 
         t0 = time.perf_counter()
         # Boucle sur chaque indicateur
@@ -199,9 +223,10 @@ class VSMExtractor:
             metric = row["Métrique"]
             unite = row["Unité / Détail"]
             keywords = row.get(keywords_tag, "")
-            must_have_raw = row.get(must_have_tag, "")
 
-            code = row.get("Code indicateur", "NA")
+            # Pour les logs, on préfère `code_vsme` (ex. B3_1) si présent.
+            # Le champ CSV `Code indicateur` peut être plus générique (ex. B3).
+            code = row.get("code_vsme") or row.get("Code indicateur") or "NA"
             logger.info(
                 "Indicator %s/%s | code=%s | metric=%s | unit=%s",
                 idx,
@@ -240,17 +265,30 @@ class VSMExtractor:
                 if translated:
                     keywords = translated
 
+            # Trace/exports : conserve la requête de retrieval effectivement utilisée.
+            # (Utile pour audit/debug, et pour expliquer pourquoi certaines pages ont été sélectionnées.)
+            keywords_used = str(keywords or "")
+
+            # Prépare la liste des tokens de mots-clés (ordre stable, sans doublons).
+            # On garde un tokeniseur simple (séparateurs non-alphanumériques, min 3 chars)
+            # pour rester proche de la logique `count`.
+            kw_tokens = [
+                t for t in re.split(r"\W+", (keywords_used or "").lower()) if len(t) > 2
+            ]
+            seen_kw: set[str] = set()
+            kw_tokens_unique: list[str] = []
+            for t in kw_tokens:
+                if t in seen_kw:
+                    continue
+                seen_kw.add(t)
+                kw_tokens_unique.append(t)
+
             # Sélectionne les extraits/pages les plus pertinents via les mots-clés
-            ctx_selected = find_relevant_snippets(
+            ctx_selected, retrieval_details = find_relevant_snippets_with_details(
                 query=str(keywords),
                 page_texts=page_texts,
                 k=self.top_k_snippets,
                 method=self.retrieval_method,
-                must_have_terms=[
-                    t.strip()
-                    for t in str(must_have_raw).split(",")
-                    if t.strip() != ""
-                ],
             )
             logger.debug(
                 "Retrieval | snippets=%s | method=%s",
@@ -258,37 +296,66 @@ class VSMExtractor:
                 self.retrieval_method,
             )
 
+            # Audit : pages candidates / pages conservées + détails des seuils par page.
+            pages_candidates = (
+                retrieval_details.get("pages_candidates")
+                if isinstance(retrieval_details, dict)
+                else None
+            )
+            pages_kept = (
+                retrieval_details.get("pages_kept")
+                if isinstance(retrieval_details, dict)
+                else None
+            )
+            per_page = (
+                retrieval_details.get("per_page")
+                if isinstance(retrieval_details, dict)
+                else None
+            )
+
+            # Mots-clés trouvés : union des mots-clés trouvés sur les pages "passées" (kept)
+            found_set: set[str] = set()
+            if isinstance(per_page, list):
+                for item in per_page:
+                    if not isinstance(item, dict):
+                        continue
+                    if not bool(item.get("passed")):
+                        continue
+                    for tok in item.get("keywords_found") or []:
+                        if isinstance(tok, str) and tok.strip() != "":
+                            found_set.add(tok.strip().lower())
+            keywords_found_list = [t for t in kw_tokens_unique if t in found_set]
+            keywords_found_str = ", ".join(keywords_found_list)
+
             # Si aucun extrait n'est pertinent
             if not ctx_selected:
-                # Cas particulier : méthodes de filtrage (count_score / bm25_souple).
-                # Si aucune page ne passe les seuils, on renvoie NA (et on évite un appel LLM).
-                if self.retrieval_method in {"bm25_souple", "count_score"}:
-                    logger.info(
-                        "No relevant page (thresholded retrieval) | method=%s | code=%s | metric=%s -> NA",
-                        self.retrieval_method,
-                        code,
-                        metric,
-                    )
-                    results.append(
-                        {
-                            # Préfère `code_vsme` (ex. B3_1) si présent, sinon fallback sur `Code indicateur` (ex. B3).
-                            "Code indicateur": row.get("code_vsme")
-                            or row.get("Code indicateur")
-                            or "NA",
-                            "Thématique": row["Thématique"],
-                            "Métrique": row["Métrique"],
-                            "Valeur": "NA",
-                            "Unité extraite": "NA",
-                            "Paragraphe source": "",
-                        }
-                    )
-                    continue
-
-                # Sinon, fallback : utiliser le début du document
-                logger.debug(
-                    "Fallback retrieval | utilisation de l'en-tête du document"
+                # Si aucune page/extrait n'est jugé pertinent, on renvoie NA et on évite un appel LLM.
+                # (Pas de fallback sur le début du document : réduit les faux positifs.)
+                logger.info(
+                    "No relevant page | method=%s | code=%s | metric=%s -> NA",
+                    self.retrieval_method,
+                    code,
+                    metric,
                 )
-                ctx_selected = [full_text[:10000]]
+                results.append(
+                    {
+                        # Préfère `code_vsme` (ex. B3_1) si présent, sinon fallback sur `Code indicateur` (ex. B3).
+                        "Code indicateur": row.get("code_vsme")
+                        or row.get("Code indicateur")
+                        or "NA",
+                        "Thématique": row["Thématique"],
+                        "Métrique": row["Métrique"],
+                        "Mots clés utilisés": keywords_used,
+                        "Mots clés trouvés": "",
+                        "Pages candidates": pages_candidates or [],
+                        "Pages conservées": pages_kept or [],
+                        "Retrieval par page": per_page or [],
+                        "Valeur": "NA",
+                        "Unité extraite": "NA",
+                        "Paragraphe source": "",
+                    }
+                )
+                continue
 
             # Contexte réellement envoyé au LLM (limité à 6 extraits côté prompt)
             ctx_used = list(ctx_selected[:6])
@@ -310,6 +377,7 @@ class VSMExtractor:
             )
 
             # Extrait la valeur de l’indicateur à partir du contexte sélectionné
+            llm_queried += 1
             data, in_tokens, out_tokens, _ = extract_value_for_metric(
                 llm=self.llm,
                 metric=metric,
@@ -327,6 +395,11 @@ class VSMExtractor:
 
             tot_in_tokens += in_tokens
             tot_out_tokens += out_tokens
+
+            # Comptage "valeur trouvée" : non vide et différent de NA.
+            v = str(data.get("valeur") or "").strip()
+            if v and v.lower() not in {"na", "n/a"}:
+                value_found += 1
 
             ind_dt = time.perf_counter() - ind_t0
             logger.info(
@@ -347,6 +420,11 @@ class VSMExtractor:
                     or "NA",
                     "Thématique": row["Thématique"],
                     "Métrique": row["Métrique"],
+                    "Mots clés utilisés": keywords_used,
+                    "Mots clés trouvés": keywords_found_str,
+                    "Pages candidates": pages_candidates or [],
+                    "Pages conservées": pages_kept or [],
+                    "Retrieval par page": per_page or [],
                     "Valeur": data["valeur"],
                     "Unité extraite": data["unité"],
                     "Paragraphe source": data["paragraphe"],
@@ -368,6 +446,9 @@ class VSMExtractor:
 
         # Statistiques à retourner
         stats = ExtractionStats(
+            total_indicators=len(indicateurs),
+            indicators_llm_queried=llm_queried,
+            indicators_value_found=value_found,
             total_input_tokens=tot_in_tokens,
             total_output_tokens=tot_out_tokens,
             total_cost_eur=total_cost,
@@ -375,8 +456,11 @@ class VSMExtractor:
 
         t_total = time.perf_counter() - t_total0
         logger.info(
-            "END extract_from_pdf | duration_s=%.3f | input_tokens=%s | output_tokens=%s | cost_eur=%.6f",
+            "END extract_from_pdf | duration_s=%.3f | indicators_total=%s | indicators_llm_queried=%s | indicators_value_found=%s | input_tokens=%s | output_tokens=%s | cost_eur=%.6f",
             t_total,
+            stats.total_indicators,
+            stats.indicators_llm_queried,
+            stats.indicators_value_found,
             stats.total_input_tokens,
             stats.total_output_tokens,
             stats.total_cost_eur,

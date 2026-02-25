@@ -65,10 +65,7 @@ def _format_prompt_block(
     # Sépare clairement les blocs pour faciliter la relecture/audit
     context_block = ""
     if context is not None and str(context).strip() != "":
-        context_block = (
-            "------------------- CONTEXT -------------------\n"
-            f"{context}\n"
-        )
+        context_block = f"------------------- CONTEXT -------------------\n{context}\n"
     return (
         "\n"
         "==================== LLM PROMPT (BEGIN) ====================\n"
@@ -217,7 +214,9 @@ def _safe_get_usage(resp: Any) -> Optional[Dict[str, int]]:
             if "input_tokens" in u or "output_tokens" in u:
                 prompt_tokens = int(u.get("input_tokens") or 0)
                 completion_tokens = int(u.get("output_tokens") or 0)
-                total_tokens = int(u.get("total_tokens") or (prompt_tokens + completion_tokens))
+                total_tokens = int(
+                    u.get("total_tokens") or (prompt_tokens + completion_tokens)
+                )
                 return dict(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
@@ -346,7 +345,10 @@ class LLM:
         def _before_sleep(retry_state) -> None:
             # attempt_number démarre à 1. Le nombre total de tentatives = max_retries + 1.
             try:
-                sleep_next = float(getattr(getattr(retry_state, "next_action", None), "sleep", 0.0) or 0.0)
+                sleep_next = float(
+                    getattr(getattr(retry_state, "next_action", None), "sleep", 0.0)
+                    or 0.0
+                )
             except Exception:
                 sleep_next = 0.0
             logger.warning(
@@ -446,7 +448,9 @@ class LLM:
         # Messages compatibles à la fois pour responses et chat.completions
         messages: list[dict[str, str]] = [{"role": "system", "content": system}]
         if context is not None and str(context).strip() != "":
-            messages.append({"role": "user", "content": f"CONTEXT:\n{context}\n\n[END CONTEXT]"})
+            messages.append(
+                {"role": "user", "content": f"CONTEXT:\n{context}\n\n[END CONTEXT]"}
+            )
         messages.append({"role": "user", "content": question})
 
         text = ""
@@ -494,7 +498,9 @@ class LLM:
                     presence_penalty=0,
                     stream=False,
                     response_format={"type": "text"},  # IMPORTANT: pas "json_object"
-                    extra_body={"reasoning": {"effort": "low"}},  # approximation (au mieux)
+                    extra_body={
+                        "reasoning": {"effort": "low"}
+                    },  # approximation (au mieux)
                 )
 
                 choice0 = resp.choices[0]
@@ -629,9 +635,8 @@ class LLM:
 
         # -------- 2) Optionnel mais conseillé : validation JSON + retry court si invalide/vide
         # (désactivable si un retry automatique n'est pas souhaité)
-        if (
-            self.config.api_protocol == "chat.completions"
-            and (not (text or "").strip() or not _is_valid_json_object(text))
+        if self.config.api_protocol == "chat.completions" and (
+            not (text or "").strip() or not _is_valid_json_object(text)
         ):
             # Retry "court" : on réduit le risque de verbosité
             # -> température 0, max_tokens plus petit, et on demande une sortie JSON ultra courte.
@@ -644,7 +649,16 @@ class LLM:
                     model=self.config.model,
                     messages=[
                         {"role": "system", "content": system},
-                        *( [{"role": "user", "content": f"CONTEXT:\n{context}\n\n[END CONTEXT]"}] if context else [] ),
+                        *(
+                            [
+                                {
+                                    "role": "user",
+                                    "content": f"CONTEXT:\n{context}\n\n[END CONTEXT]",
+                                }
+                            ]
+                            if context
+                            else []
+                        ),
                         {"role": "user", "content": retry_question},
                     ],
                     max_tokens=min(max_tokens, 512),
@@ -688,20 +702,28 @@ class LLM:
         if usage:
             prompt_tokens = int(usage.get("prompt_tokens") or 0)
             completion_tokens = int(usage.get("completion_tokens") or 0)
-            total_tokens = int(usage.get("total_tokens") or (prompt_tokens + completion_tokens))
+            total_tokens = int(
+                usage.get("total_tokens") or (prompt_tokens + completion_tokens)
+            )
         else:
-            prompt_tokens = _estimate_tokens(f"{system}\n{context or ''}\n{question}".strip())
+            prompt_tokens = _estimate_tokens(
+                f"{system}\n{context or ''}\n{question}".strip()
+            )
             completion_tokens = _estimate_tokens(text)
             total_tokens = prompt_tokens + completion_tokens
             used_api_usage = False
 
         cost_prompt_eur = (prompt_tokens / 1_000_000) * EURO_COST_PER_MILLION_INPUT
-        cost_completion_eur = (completion_tokens / 1_000_000) * EURO_COST_PER_MILLION_OUTPUT
+        cost_completion_eur = (
+            completion_tokens / 1_000_000
+        ) * EURO_COST_PER_MILLION_OUTPUT
 
         # -------- 4) Normalisation finale (optionnel): on renvoie le JSON "nettoyé"
         # (Si la réponse brute doit être conservée, commenter les 3 lignes ci-dessous.)
         try:
-            text = json.dumps(json.loads(_extract_first_json_object(text)), ensure_ascii=False)
+            text = json.dumps(
+                json.loads(_extract_first_json_object(text)), ensure_ascii=False
+            )
         except Exception:
             # on laisse text tel quel
             pass
@@ -718,7 +740,6 @@ class LLM:
             },
             "used_api_usage": used_api_usage,
         }
-
 
     # Variante streaming : écrit les tokens au fil de l'eau (optionnel) et retourne les métriques d'usage
     def invoke_stream(
@@ -920,7 +941,10 @@ class LLM:
 
         est_comp = _estimate_tokens(text)
         if used_api_usage and est_comp > 0:
-            if completion_tokens > max(est_comp * 5, est_comp + 2000) and completion_tokens > 2000:
+            if (
+                completion_tokens > max(est_comp * 5, est_comp + 2000)
+                and completion_tokens > 2000
+            ):
                 logger.warning(
                     "Suspicious usage from provider (stream) | model=%s | base_url=%s | completion_tokens=%s | est_completion=%s | overriding_to_estimate",
                     self.config.model,
