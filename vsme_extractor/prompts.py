@@ -26,5 +26,6 @@ Métrique: {metric}
 Unité cible: {unite}
 
 Réponds IMPERATIVEMENT AU FORMAT JSON : {{"valeur": "<valeur_seule>", "unité": "<unité_seule>", "paragraphe": "<ligne_de_text_ou_se_trouve_la_valeur>"}}
+Si la valeur est multiple respecte le format "label1:valeur1/label2:valeur2/label3:valeur3 ..." ou "valeur1/valeur2/valeur3 ..." (ex1. nombre de salariés par genre : homme:10/femme:100, ex2: Les pays dans lesquels l'entreprise est implantée : "pays1/pays2/pays3 ..." ) 
 Si la valeur est manquante dans le CONTEXT renvoit : {{"valeur": "NA", "unité":"NA", "paragraphe": "NA"}}.
 """
