@@ -3,7 +3,7 @@
 This example calls the CLI programmatically, so the behavior matches `vsme-extract`.
 
 Run:
-  .venv/bin/python exemples/example_extract_pdf_xlsx.py
+  .venv/bin/python examples/example_cli_extract_pdf_xlsx.py
 """
 
 from __future__ import annotations
@@ -25,14 +25,10 @@ def main() -> None:
     dotenv_path = find_dotenv(usecwd=True)
     load_dotenv(dotenv_path, override=False)
 
-    # Pick a PDF shipped with the repo (fallback to edit manually)
-    pdf_path = Path("./data/test/nexans.pdf")
+    # Set an existing PDF path (edit this)
+    pdf_path = Path("/your_path/your_file.pdf")
     if not pdf_path.exists():
-        pdf_path = Path("./data/test/sanofi.pdf")
-    if not pdf_path.exists():
-        raise FileNotFoundError(
-            "No example PDF found. Edit this script and set `pdf_path` to an existing PDF."
-        )
+        raise FileNotFoundError(f"PDF file does not exist: {pdf_path}")
 
     # Restrict to a small set of indicators for faster testing (edit as needed)
     codes = "B3_1,B3_2"

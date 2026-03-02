@@ -6,7 +6,7 @@ This example reuses the CLI implementation so the JSON schema matches `vsme-extr
 - Optional retrieval details inclusion
 
 Run:
-  .venv/bin/python exemples/example_extract_pdf_json.py
+  .venv/bin/python examples/example_cli_extract_pdf_json.py
 """
 
 from __future__ import annotations
@@ -29,14 +29,10 @@ def main() -> None:
     dotenv_path = find_dotenv(usecwd=True)
     load_dotenv(dotenv_path, override=False)
 
-    # Pick a PDF shipped with the repo (fallback to edit manually)
-    pdf_path = Path("./data/test/nexans.pdf")
+    # Set an existing PDF path (edit this)
+    pdf_path = Path("/your_path/your_file.pdf")
     if not pdf_path.exists():
-        pdf_path = Path("./data/test/sanofi.pdf")
-    if not pdf_path.exists():
-        raise FileNotFoundError(
-            "No example PDF found. Edit this script and set `pdf_path` to an existing PDF."
-        )
+        raise FileNotFoundError(f"PDF file does not exist: {pdf_path}")
 
     # Optionally restrict to a small set of indicators for faster testing
     codes = "B3_1,B3_2,B7_1,B1_1"
