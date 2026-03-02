@@ -51,6 +51,10 @@ def detect_document_language(page_texts: list[str]) -> str:
         - 'fr' pour français,
         - 'en' pour anglais,
         - ou un code ISO à 2 lettres renvoyé par langdetect.
+
+    Note:
+        Si le texte extrait est vide / trop court (ex: PDF scanné sans OCR) ou si la
+        détection échoue, on retourne par défaut `'en'`.
     """
     # Concatène les premières pages pour obtenir un échantillon représentatif
     sample = " ".join(page_texts[:5])  # ~5 pages suffisent généralement
@@ -64,6 +68,7 @@ def detect_document_language(page_texts: list[str]) -> str:
         lang = detect(sample)
         return lang  # ex. 'fr', 'en', 'de', ...
     except LangDetectException:
+        # Détection impossible : par défaut on considère "en"
         return "en"
 
 
