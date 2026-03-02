@@ -35,7 +35,9 @@ def main() -> None:
 
     from vsme_extractor.cli import main as cli_main  # noqa: E402
 
-    cli_main([str(pdf_path), "--no-log-stdout", "--output-format", "xlsx", "--codes", codes])
+    cli_main(
+        [str(pdf_path), "--no-log-stdout", "--output-format", "xlsx", "--codes", codes]
+    )
 
     out_path = pdf_path.with_suffix(".vsme.xlsx")
     print("Export:", out_path)
