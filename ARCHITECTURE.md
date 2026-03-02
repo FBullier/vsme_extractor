@@ -21,11 +21,10 @@ Ce document décrit l’arborescence **côté code** et le rôle des principaux 
 ├── pytest.ini
 ├── tests/
 ├── streamlit_app/
-├── exemples/
-│   ├── example_extract_pdf.py
+├── examples/
 │   ├── example_cli_extract_pdf_json.py
 │   ├── example_cli_extract_pdf_xlsx.py
-│   └── example_usage.ipynb
+│   └── example_cli_usage.ipynb
 └── vsme_extractor/
     ├── __init__.py
     ├── cli.py

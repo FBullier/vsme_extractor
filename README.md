@@ -6,7 +6,7 @@ Ce projet extrait automatiquement des indicateurs VSME (ESG) à partir de rappor
 
 Le cœur de l’extraction se trouve dans le package `vsme_extractor/`.
 La CLI installable est définie dans [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1) (commande `vsme-extract`).
-Les exemples d’utilisation “librairie” (script + notebook) sont disponibles dans [`exemples/`](exemples/example_extract_pdf.py:1).
+Les exemples d’utilisation (CLI, scripts + notebooks) sont disponibles dans [`examples/`](examples/example_cli_extract_pdf_json.py:1).
 
 ---
 
@@ -210,25 +210,30 @@ VSME_PROMPT_STDOUT=0
 
 ## 6) Usage (copier-coller)
 
-### 6.1 Utiliser la librairie (script + notebook)
-Deux tutoriels sont fournis dans [`exemples/`](exemples/example_extract_pdf.py:1) :
+### 6.1 Exemples (scripts + notebooks)
+Les tutoriels sont fournis dans [`examples/`](examples/example_cli_extract_pdf_json.py:1) :
 
-- Script (extraction d’un PDF) : [`exemples/example_extract_pdf.py`](exemples/example_extract_pdf.py:1)
+- Script (extraction via la CLI, sortie JSON) : [`examples/example_cli_extract_pdf_json.py`](examples/example_cli_extract_pdf_json.py:1)
   ```bash
-  python exemples/example_extract_pdf.py
+  .venv/bin/python examples/example_cli_extract_pdf_json.py
   ```
 
- - Script (extraction via la CLI, sortie JSON) : [`exemples/example_extract_pdf_json.py`](exemples/example_extract_pdf_json.py:1)
-   ```bash
-   .venv/bin/python exemples/example_extract_pdf_json.py
-   ```
+- Script (extraction via la CLI, sortie XLSX) : [`examples/example_cli_extract_pdf_xlsx.py`](examples/example_cli_extract_pdf_xlsx.py:1)
+  ```bash
+  .venv/bin/python examples/example_cli_extract_pdf_xlsx.py
+  ```
 
- - Script (extraction via la CLI, sortie XLSX) : [`exemples/example_extract_pdf_xlsx.py`](exemples/example_extract_pdf_xlsx.py:1)
-   ```bash
-   .venv/bin/python exemples/example_extract_pdf_xlsx.py
-   ```
+- Notebook (extraction PDF, batch dossier, stats complétude) : [`examples/example_cli_usage.ipynb`](examples/example_cli_usage.ipynb:1)
 
-- Notebook (extraction PDF, batch dossier, stats complétude) : [`exemples/example_usage.ipynb`](exemples/example_usage.ipynb:1)
+- Notebook (CLI JSON) : [`examples/example_cli_extract_pdf_json.ipynb`](examples/example_cli_extract_pdf_json.ipynb:1)
+  - Version notebook du script [`examples/example_cli_extract_pdf_json.py`](examples/example_cli_extract_pdf_json.py:1)
+  - Appelle la CLI programmatique via [`vsme_extractor.cli.main()`](vsme_extractor/cli.py:288)
+  - Produit un fichier `*.vsme.json` à côté du PDF
+
+- Notebook (CLI XLSX) : [`examples/example_cli_extract_pdf_xlsx.ipynb`](examples/example_cli_extract_pdf_xlsx.ipynb:1)
+  - Version notebook du script [`examples/example_cli_extract_pdf_xlsx.py`](examples/example_cli_extract_pdf_xlsx.py:1)
+  - Appelle la CLI programmatique via [`vsme_extractor.cli.main()`](vsme_extractor/cli.py:288)
+  - Produit un fichier `*.vsme.xlsx` à côté du PDF
 
 > Les exemples chargent [`.env`](.env:1) (si présent) et peuvent activer le logging via `SME_LOG_LEVEL` / `VSME_LOG_FILE` / `VSME_LOG_STDOUT`.
 
@@ -387,8 +392,9 @@ Un fichier Excel `stats_completude.xlsx` contenant des métriques de complétude
 Arborescence logique :
 - [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1) : CLI installable (commande `vsme-extract`).
 - [`main.py`](main.py:1) : exemple minimal d’utilisation (librairie), pas la CLI.
-- [`exemples/example_extract_pdf.py`](exemples/example_extract_pdf.py:1) : script tutoriel.
-- [`exemples/example_usage.ipynb`](exemples/example_usage.ipynb:1) : notebook tutoriel.
+- [`examples/example_cli_extract_pdf_json.py`](examples/example_cli_extract_pdf_json.py:1) : script tutoriel (CLI JSON).
+- [`examples/example_cli_extract_pdf_xlsx.py`](examples/example_cli_extract_pdf_xlsx.py:1) : script tutoriel (CLI XLSX).
+- [`examples/example_cli_usage.ipynb`](examples/example_cli_usage.ipynb:1) : notebook tutoriel (CLI programmatique).
 - [`vsme_extractor/pipeline.py`](vsme_extractor/pipeline.py:1) : orchestration extraction (charge PDF, sélectionne snippets, appelle LLM).
 - [`vsme_extractor/extraction.py`](vsme_extractor/extraction.py:1) : extraction d’une métrique (prompt + parsing JSON).
 - [`vsme_extractor/llm_client.py`](vsme_extractor/llm_client.py:1) : client LLM (OpenAI compatible) + estimation tokens/coûts.
