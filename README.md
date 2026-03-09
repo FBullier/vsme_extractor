@@ -160,6 +160,8 @@ Ces méthodes sont implémentées dans [`find_relevant_snippets()`](vsme_extract
 
 - `count_refine`
   - Principe : sélectionne d’abord des pages candidates via `count`, puis applique un ranking TF‑IDF *word n‑grams* (1–3) avec tokenisation souple.
+  - Pré‑sélection : par défaut, `count` garde jusqu’à `max(k, candidates_k)` pages candidates avant TF‑IDF.
+    Avec les valeurs par défaut (`k=6`, `candidates_k=24`), cela fait **jusqu’à 24 pages candidates**.
   - Filtrage :
     - seuil relatif `rel_thr` (par défaut `0.60`) : conserve les pages avec `(score / best_score) >= rel_thr`
     - seuil absolu `abs_thr` (par défaut `0.02`) : conserve les pages avec `score >= abs_thr`

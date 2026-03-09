@@ -157,7 +157,8 @@ En cas d’échec d’initialisation ou d’extraction, la CLI écrit un rapport
 - [`vsme_extractor/retrieval.py`](vsme_extractor/retrieval.py:1)  
   Retrieval “lexical” :
   - `count` (comptage d’occurrences de tokens)
-  - `count_refine` (candidats via `count` puis ranking TF‑IDF n‑grams)
+- `count_refine` (candidats via `count` puis ranking TF‑IDF n‑grams)
+   - Par défaut, `count` pré‑sélectionne jusqu’à `max(k, candidates_k)` pages candidates (typiquement `max(6, 24)=24`) avant le ranking TF‑IDF.
    via [`find_relevant_snippets()`](vsme_extractor/retrieval.py:240).
 
 - [`vsme_extractor/indicators.py`](vsme_extractor/indicators.py:1)  
