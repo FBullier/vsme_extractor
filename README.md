@@ -401,7 +401,6 @@ Un fichier Excel `stats_completude.xlsx` contenant des métriques de complétude
 
 Arborescence logique :
 - [`vsme_extractor/cli.py`](vsme_extractor/cli.py:1) : CLI installable (commande `vsme-extract`).
-- [`main.py`](main.py:1) : exemple minimal d’utilisation (librairie), pas la CLI.
 - [`examples/example_cli_extract_pdf_json.py`](examples/example_cli_extract_pdf_json.py:1) : script tutoriel (CLI JSON).
 - [`examples/example_cli_extract_pdf_xlsx.py`](examples/example_cli_extract_pdf_xlsx.py:1) : script tutoriel (CLI XLSX).
 - [`examples/example_cli_usage.ipynb`](examples/example_cli_usage.ipynb:1) : notebook tutoriel (CLI programmatique).
