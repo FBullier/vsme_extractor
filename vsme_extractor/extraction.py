@@ -32,8 +32,8 @@ def extract_value_for_metric(
     context_joined = "\n\n---\n\n".join(contexte_snippets[:6])
     user_prompt = build_user_prompt(metric, unite)
 
-    # IMPORTANT: do not duplicate the system prompt.
-    # The system prompt is passed via `system_prompt=...` and the user prompt goes in `question`.
+    # IMPORTANT : ne pas dupliquer le prompt système.
+    # Le prompt système est passé via `system_prompt=...` et le prompt utilisateur via `question`.
     prompt_trace = (
         f"SYSTEM:\n{EXTRACTION_SYSTEM_PROMPT}"
         f"\n\nCONTEXT:\n{context_joined}"
@@ -53,8 +53,8 @@ def extract_value_for_metric(
     in_tokens = int(raw.get("prompt_tokens") or 0)
     out_tokens = int(raw.get("completion_tokens") or 0)
 
-    # Debug: allow verifying whether high output_tokens come from genuinely long text
-    # or from provider-reported usage. Does not log the content.
+    # Debug : permet de vérifier si un output_tokens élevé vient d'un texte réellement long
+    # ou d'un usage reporté par le provider. Ne loggue pas le contenu.
     try:
         logger.debug(
             "LLM response stats | metric=%s | used_api_usage=%s | chars_out=%s | est_out_tokens=%s | reported_out_tokens=%s",
@@ -90,7 +90,7 @@ def extract_value_for_metric(
     except Exception:
         logger.debug("JSON parse | status=failed | attempting fallback")
 
-        # 1) Best-effort regex extraction for the 3 fields
+        # 1) Extraction best-effort par regex des 3 champs
         def _extract(pattern: str) -> str | None:
             """Extrait un champ via regex (best-effort)."""
             m = re.search(pattern, text, re.S | re.I)
@@ -115,7 +115,7 @@ def extract_value_for_metric(
             "paragraphe": (paragraphe or "NA"),
         }
 
-        # 2) Optional single repair pass: ask the model to output strict JSON only
+        # 2) Optionnel : une passe de "repair" (unique) en demandant au modèle un JSON strict uniquement
         # On évite un appel "repair" si la réponse modèle est vide.
         if (
             json_repair

@@ -23,15 +23,15 @@ def build_error_report(
     extractor: object | None = None,
     extra: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
-    """Build an error report payload suitable for JSON serialization.
+    """Construit un payload de rapport d'erreur sérialisable en JSON.
 
-    Goal: keep console output clean while still capturing actionable debugging info
-    (exception type/message + full traceback + non-secret configuration context).
+    Objectif : garder la console lisible tout en capturant des informations utiles au debug
+    (type/message d'exception + traceback complet + contexte de configuration non sensible).
     """
 
     cfg = getattr(extractor, "config", None)
 
-    # Robust: always serialize the traceback of the provided exception (not "last exception").
+    # Robuste : sérialise toujours le traceback de l'exception fournie (pas "dernière exception").
     tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
 
     payload: dict[str, Any] = {
@@ -53,7 +53,7 @@ def build_error_report(
             "retrieval_method": getattr(extractor, "retrieval_method", None),
         },
         "env": {
-            # Never include secrets like SCW_API_KEY.
+            # Ne jamais inclure de secrets comme SCW_API_KEY.
             "VSM_INDICATORS_PATH": (os.getenv("VSM_INDICATORS_PATH") or "").strip()
             or None,
             "VSME_CODE_VSME_LIST": (os.getenv("VSME_CODE_VSME_LIST") or "").strip()
@@ -72,7 +72,7 @@ def build_error_report(
 
 
 def write_error_report(report_path: str | Path, payload: Mapping[str, Any]) -> Path:
-    """Write the error report as UTF-8 JSON and return the path."""
+    """Écrit le rapport d'erreur en JSON UTF‑8 et retourne le chemin."""
     p = Path(report_path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(

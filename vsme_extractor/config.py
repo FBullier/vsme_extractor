@@ -9,9 +9,9 @@ EURO_COST_PER_MILLION_OUTPUT = float(os.getenv("VSM_OUTPUT_COST_EUR", 0.60))
 
 
 def _get_env_float(name: str, default: float) -> float:
-    """Parse a float env var safely.
+    """Parse une variable d'environnement float de façon robuste.
 
-    If unset/empty/invalid, returns `default`.
+    Si la variable est absente/vide/invalide, retourne `default`.
     """
     raw = os.getenv(name)
     if raw is None:

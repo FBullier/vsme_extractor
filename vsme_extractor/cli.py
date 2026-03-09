@@ -1,7 +1,8 @@
-"""CLI entrypoints.
+"""Points d'entrée CLI.
 
-Note: tests expect [`load_dotenv`](vsme_extractor/cli.py:1) to exist on this module so it can
-be monkeypatched, even if we don't call it directly (we load `.env` via `dotenv_values`).
+Note : les tests s'attendent à ce que [`load_dotenv`](vsme_extractor/cli.py:17) existe dans ce module
+pour pouvoir le monkeypatcher, même si on ne l'appelle pas directement (on charge `.env` via
+`dotenv_values`).
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from .stats import count_filled_indicators
 
 
 def _load_rse_mapping(path: Path) -> dict[str, dict[str, str]]:
-    """Load mapping table (code_vsme -> RSE portal fields) used to enrich JSON outputs."""
+    """Charge la table de mapping (code_vsme -> champs du portail RSE) pour enrichir la sortie JSON."""
     try:
         import chardet
         import pandas as pd
@@ -77,13 +78,13 @@ def _enrich_results_with_rse(
         return results
 
     for rec in results:
-        # Prefer explicit `code_vsme` if present; otherwise the pipeline exports it in "Code indicateur".
+        # Préfère `code_vsme` si présent ; sinon la pipeline l'exporte dans "Code indicateur".
         code = str(
             rec.get("code_vsme") or rec.get("Code indicateur") or rec.get("code") or ""
         ).strip()
         m = rse_map.get(code)
         if not m:
-            # Keep keys present with empty values for schema stability.
+            # Conserve les clés avec valeurs vides (stabilité de schéma).
             rec.setdefault("matched_rse_code", "")
             rec.setdefault("matched_rse_champs_id", "")
             rec.setdefault("matched_rse_colonne_id", "")
@@ -95,7 +96,7 @@ def _enrich_results_with_rse(
 
 
 def _strip_retrieval_details(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove retrieval debug fields from indicator rows (to keep JSON small by default)."""
+    """Retire les champs de debug retrieval des lignes indicateurs (pour garder un JSON léger par défaut)."""
     if not results:
         return results
     keys = {"Pages candidates", "Pages conservées", "Retrieval par page"}
@@ -131,7 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # Output format (xlsx/json)
+    # Format de sortie (xlsx/json)
     env_output_format = (os.getenv("VSME_OUTPUT_FORMAT") or "").strip().lower()
     if env_output_format not in {"xlsx", "json"}:
         env_output_format = "json"
@@ -146,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # JSON status block (only relevant when output_format=json)
+    # Bloc `status` JSON (uniquement pertinent quand output_format=json)
     env_json_status = parse_env_bool(os.getenv("VSME_OUTPUT_JSON_INCLUDE_STATUS"))
     json_status_group = parser.add_mutually_exclusive_group()
     json_status_group.add_argument(
@@ -172,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
 
-    # Retrieval method (selection des extraits/pages avant appel LLM)
+    # Méthode de retrieval (sélection des extraits/pages avant appel LLM)
     env_retrieval = (os.getenv("VSME_RETRIEVAL_METHOD") or "count").strip()
     parser.add_argument(
         "--retrieval-method",
@@ -189,7 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # JSON output option: include retrieval debug details in each indicator row
+    # Option JSON : inclure les détails de debug retrieval dans chaque ligne indicateur
     env_json_retrieval = parse_env_bool(
         os.getenv("VSME_OUTPUT_JSON_INCLUDE_RETRIEVAL_DETAILS")
     )
@@ -249,9 +250,9 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # Logging defaults can come from environment variables
+    # Valeurs par défaut du logging (peuvent venir des variables d'environnement)
     # - SME_LOG_LEVEL: DEBUG/INFO/WARNING/ERROR
-    # - VSME_LOG_FILE: path
+    # - VSME_LOG_FILE: chemin
     # - VSME_LOG_STDOUT: 1/0, true/false, yes/no, on/off
     env_level = os.getenv("SME_LOG_LEVEL") or "INFO"
     env_file = os.getenv("VSME_LOG_FILE") or None
@@ -429,7 +430,7 @@ def main(argv: list[str] | None = None) -> None:
     export_pages_text = bool(ns.export_pages_text)
 
     def _dump_pdf_pages(pdf: Path) -> None:
-        """Export page texts for debugging, without stopping the main processing."""
+        """Exporte le texte des pages pour debug, sans interrompre le traitement principal."""
         pages, page_texts, _ = load_pdf(pdf)
         out_path = pdf.with_suffix(".pages.txt")
         with out_path.open("w", encoding="utf-8") as f:
@@ -488,7 +489,7 @@ def main(argv: list[str] | None = None) -> None:
         logger.error("Error report written: %s", report_path)
         raise SystemExit(2)
 
-    # Output format (CLI arg has priority; default is json)
+    # Format de sortie (la valeur CLI est prioritaire ; défaut = json)
     output_format = (getattr(ns, "output_format", None) or "json").strip().lower()
     if output_format not in {"xlsx", "json"}:
         output_format = "json"
@@ -505,7 +506,7 @@ def main(argv: list[str] | None = None) -> None:
         else False
     )
 
-    # Optional enrichment mapping for JSON outputs (code_vsme -> RSE portal fields)
+    # Enrichissement optionnel pour les sorties JSON (code_vsme -> champs portail RSE)
     rse_map: dict[str, dict[str, str]] = {}
     if output_format == "json":
         rse_path = Path(__file__).parent / "data" / "table_codes_portail_rse.csv"

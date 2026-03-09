@@ -70,13 +70,13 @@ def get_indicators(
     )
 
     if apply_env_filter:
-        # Optional filtering by `code_vsme` via .env
-        # - If VSME_CODE_VSME_LIST is set and non-empty: keep only these `code_vsme`
-        # - Else (missing/empty): keep only rows where `defaut` == 1
+        # Filtrage optionnel par `code_vsme` via .env
+        # - Si VSME_CODE_VSME_LIST est défini et non vide : conserver uniquement ces `code_vsme`
+        # - Sinon (absent/vide) : conserver uniquement les lignes où `defaut` == 1
         codes_raw = (os.getenv("VSME_CODE_VSME_LIST") or "").strip()
         if codes_raw:
-            # Special value: "all" (or "*") disables filtering and keeps all indicators.
-            # This is useful for CLI usage: `--codes all`.
+            # Valeur spéciale : "all" (ou "*") désactive le filtrage et conserve tous les indicateurs.
+            # Utile côté CLI : `--codes all`.
             if codes_raw.lower() in {"all", "*"}:
                 records = df.to_dict(orient="records")  # type: ignore[call-overload]
                 return cast(List[Dict[str, Any]], records)

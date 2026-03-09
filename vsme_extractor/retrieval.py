@@ -116,13 +116,14 @@ def _count_scores(query: str, page_texts: List[str]) -> list[tuple[int, int, str
 def _word_ngrams(
     tokens: Sequence[str], ngram_range: tuple[int, int] = (1, 3)
 ) -> list[str]:
-    """Build word n-grams from tokens.
+    """Construit des n-grams de mots à partir d'une liste de tokens.
 
-    We keep unigrams + higher order n-grams to capture phrases (e.g. "emissions scope3").
+    On conserve les unigrams + des n-grams plus longs pour capturer des expressions
+    (ex. "emissions scope3").
 
-    Implementation details:
-    - n-grams are joined with a single space (human-readable, stable).
-    - duplicates are kept (TF will account for repetitions).
+    Détails d'implémentation :
+    - les n-grams sont joints avec un espace simple (lisible et stable)
+    - les doublons sont conservés (la TF tient compte des répétitions)
     """
 
     if not tokens:
@@ -151,22 +152,22 @@ def _tfidf_ngram_scores(
     ngram_range: tuple[int, int] = (1, 3),
     candidate_indices: set[int] | None = None,
 ) -> list[tuple[float, int, str]]:
-    """TF-IDF cosine similarity over word n-grams.
+    """Similarité cosinus TF‑IDF sur des n-grams de mots.
 
-    Returns a list of (score, page_index, text) sorted descending.
+    Retourne une liste de (score, page_index, text) triée par score décroissant.
 
-    Notes:
-    - No external dependency (sklearn-free).
-    - Uses smoothed IDF: log((N + 1)/(df + 1)) + 1.
-    - Uses sublinear TF scaling: 1 + log(tf).
-    - If `candidate_indices` is provided, only those docs are scored, but DF/IDF
-      are still computed over all pages for stability.
+    Notes :
+    - Pas de dépendance externe (sans sklearn).
+    - IDF lissée : log((N + 1)/(df + 1)) + 1.
+    - TF sous-linéaire : 1 + log(tf).
+    - Si `candidate_indices` est fourni, on score uniquement ces documents, mais DF/IDF
+      restent calculés sur toutes les pages (stabilité).
     """
 
     if not query or not page_texts:
         return []
 
-    # ---- Build per-doc TF and global DF over n-grams
+    # ---- Construit les TF par document et la DF globale sur les n-grams
     doc_tfs: list[Counter[str]] = []
     df: Counter[str] = Counter()
 
@@ -243,9 +244,9 @@ def find_relevant_snippets(
     query: str,
     page_texts: List[str],
     k: int = 6,
-    # NOTE: `method` is often provided by user input (CLI/config) -> treat it as `str` at runtime.
-    # Keeping the Literal union preserves autocomplete for supported values while allowing
-    # runtime validation (and avoiding false "unreachable code" diagnostics in type checkers).
+    # NOTE : `method` est souvent fourni par l'utilisateur (CLI/config) -> on le traite comme `str` à l'exécution.
+    # Garder l'union Literal préserve l'autocomplétion pour les valeurs supportées tout en permettant
+    # une validation runtime (et évite des faux diagnostics "unreachable code" dans les type checkers).
     method: Literal["count", "count_refine"] | str = "count",
     candidates_k: int = 24,
     min_relative_score: float | None = None,
@@ -273,9 +274,7 @@ def find_relevant_snippets(
         return [s[2] for s in scores[:k]]
 
     if method == "count_refine":
-        # Candidates via count, then TF-IDF scores on those candidates, with ONLY a relative-score filter.
-        # - no absolute TF-IDF threshold (no `abs_thr` gate)
-        # - default rel_thr=0.40
+        # Candidates via `count`, puis scoring TF‑IDF sur ces candidates, avec filtrage par seuils.
         count_scores = _count_scores(query, page_texts)
         if not count_scores:
             return []
@@ -319,17 +318,16 @@ def find_relevant_snippets_with_details(
     query: str,
     page_texts: List[str],
     k: int = 6,
-    # NOTE: `method` is often provided by user input (CLI/config) -> treat it as `str` at runtime.
-    # Keeping the Literal union preserves autocomplete for supported values while allowing
-    # runtime validation (and avoiding false "unreachable code" diagnostics in type checkers).
+    # NOTE : `method` est souvent fourni par l'utilisateur (CLI/config) -> on le traite comme `str` à l'exécution.
+    # Garder l'union Literal préserve l'autocomplétion pour les valeurs supportées tout en permettant
+    # une validation runtime (et évite des faux diagnostics "unreachable code" dans les type checkers).
     method: Literal["count", "count_refine"] | str = "count",
     candidates_k: int = 24,
     min_relative_score: float | None = None,
 ) -> tuple[List[str], dict]:
-    """Same retrieval as [`find_relevant_snippets()`](vsme_extractor/retrieval.py:238) but returns debug details.
+    """Même retrieval que [`find_relevant_snippets()`](vsme_extractor/retrieval.py:242) mais avec détails de debug.
 
-    Returned details are designed for audit/analysis in JSON outputs.
-
+    Les détails retournés sont conçus pour l'audit / l'analyse dans les sorties JSON.
     """
 
     details: dict = {
@@ -346,7 +344,7 @@ def find_relevant_snippets_with_details(
         "per_page": [],
     }
 
-    # ------- count detailed path (no thresholds) -------
+    # ------- chemin `count` détaillé (pas de seuils) -------
     if method == "count":
         count_scores = _count_scores(query, page_texts)
         if not count_scores:
@@ -381,7 +379,7 @@ def find_relevant_snippets_with_details(
         return [s[2] for s in kept], details
 
     if method == "count_refine":
-        # Candidates via count, then TF-IDF scores on those candidates, with ONLY a relative-score filter.
+        # Candidates via `count`, puis scoring TF‑IDF sur ces candidates, avec filtrage par seuils.
         count_scores = _count_scores(query, page_texts)
         if not count_scores:
             details["gate"] = {"reason": "no_candidates"}
@@ -457,7 +455,7 @@ def find_relevant_snippets_with_details(
             )
 
         if not kept_tfidf:
-            # Either no page passed rel_thr, or they passed rel_thr but were filtered out by abs_thr.
+            # Soit aucune page ne passe rel_thr, soit certaines passent rel_thr mais sont filtrées par abs_thr.
             details["gate"] = {"reason": "no_page_passed_thresholds"}
             return [], details
 
