@@ -56,7 +56,7 @@ pip install ".[streamlit]"
 pip install ".[dev]"
 ```
 
-- Outils qualité (pre-commit, pyright, pip-audit) :
+- Outils qualité (pre-commit, pyright, pip-audit, bandit) :
 ```bash
 pip install ".[quality]"
 ```
@@ -443,13 +443,20 @@ Elle permet d'uploader un PDF, de choisir des indicateurs (`code_vsme`) et de la
 
   Note : `pip-audit` peut afficher un “Skip Reason” pour `vsme-extractor` lui-même si le projet n’est pas publié sur PyPI (normal).
 
+- Audit sécurité (bandit) :
+  ```bash
+  bandit -r vsme_extractor
+  ```
+
+  Note : le hook pre-commit Bandit est configuré pour remonter uniquement les findings **medium+** (sévérité et confiance).
+
 - Hooks git (pre-commit) :
   ```bash
   pre-commit install
   pre-commit run -a
   ```
 
-  Les hooks incluent `ruff` + `ruff-format` + `pyright` + `pytest`.
+  Les hooks incluent `ruff` + `ruff-format` + `pyright` + `pip-audit` + `pytest` + `bandit`.
 
 ---
 

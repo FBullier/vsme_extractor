@@ -26,3 +26,9 @@ repos:
         entry: .venv/bin/python -m pytest -q
         language: system
         pass_filenames: false
+
+      - id: bandit
+        name: bandit
+        entry: .venv/bin/bandit -r vsme_extractor -x tests,examples --severity-level medium --confidence-level medium
+        language: system
+        pass_filenames: false
