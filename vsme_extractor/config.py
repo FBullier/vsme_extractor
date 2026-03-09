@@ -32,6 +32,13 @@ VSME_RETRIEVAL_REL_THR = min(
     1.0, max(0.0, _get_env_float("VSME_RETRIEVAL_REL_THR", 0.40))
 )
 
+# Optionnel : seuil absolu TF‑IDF du retrieval `count_refine`.
+# Interprétation : une page est conservée seulement si score >= abs_thr.
+# Objectif : éviter de conserver des pages avec un score très faible (signal pauvre),
+# même si elles passent le seuil relatif.
+# Intervalle attendu : abs_thr >= 0.0
+VSME_RETRIEVAL_ABS_THR = max(0.0, _get_env_float("VSME_RETRIEVAL_ABS_THR", 0.01))
+
 
 @dataclass
 class LLMConfig:
