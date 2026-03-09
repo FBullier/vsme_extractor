@@ -135,6 +135,11 @@ Variables de robustesse (optionnelles) :
 Variables de retrieval (optionnelles) :
 - `retrieval_method` est configurable côté code/app (voir [`VSMExtractor`](vsme_extractor/pipeline.py:70) et l’app Streamlit).
 - `VSME_RETRIEVAL_METHOD` : méthode utilisée par la CLI (défaut : `count`) (voir [`build_parser()`](vsme_extractor/cli.py:26)).
+- `VSME_RETRIEVAL_REL_THR` : seuil **relatif** utilisé par `count_refine` (défaut : `0.40`).
+  Une page est conservée si `(score / best_score) >= rel_thr`.
+- `VSME_RETRIEVAL_ABS_THR` : seuil **absolu** TF‑IDF utilisé par `count_refine` (défaut : `0.01`).
+  Une page est conservée seulement si `score >= abs_thr`.
+  Utile pour éviter de conserver des pages avec un score très faible (signal pauvre), même si elles passent le seuil relatif.
 - La méthode `count_refine` peut filtrer des pages jugées non pertinentes ; si rien ne passe, l’indicateur est renvoyé à `NA` sans appel LLM.
 
 ### Méthodes de retrieval (sélection des extraits/pages)
@@ -154,8 +159,11 @@ Ces méthodes sont implémentées dans [`find_relevant_snippets()`](vsme_extract
   - Limites : peut produire des faux positifs (occurrences fortuites), pas de vraie notion de « similarité ».
 
 - `count_refine`
-  - Principe : sélectionne d’abord des pages candidates via `count`, puis applique un ranking TF‑IDF *word n‑grams* (1–3) avec tokenisation souple, et conserve uniquement les pages dont le score est ≥ `rel_thr` (par défaut `0.40`) du meilleur score.
-  - Particularité : si aucune page ne passe le seuil relatif, l’indicateur est renvoyé `NA` sans appel LLM.
+  - Principe : sélectionne d’abord des pages candidates via `count`, puis applique un ranking TF‑IDF *word n‑grams* (1–3) avec tokenisation souple.
+  - Filtrage :
+    - seuil relatif `rel_thr` (par défaut `0.40`) : conserve les pages avec `(score / best_score) >= rel_thr`
+    - seuil absolu `abs_thr` (par défaut `0.01`) : conserve les pages avec `score >= abs_thr`
+  - Particularité : si aucune page ne passe les seuils, l’indicateur est renvoyé `NA` sans appel LLM.
 
 Variables de logging (optionnelles, “opt-in”, utilisées par la CLI et les exemples) :
 
