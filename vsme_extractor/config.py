@@ -29,7 +29,7 @@ def _get_env_float(name: str, default: float) -> float:
 # Interprétation : une page est conservée si (score / best_score) >= rel_thr.
 # Intervalle attendu : [0.0, 1.0]
 VSME_RETRIEVAL_REL_THR = min(
-    1.0, max(0.0, _get_env_float("VSME_RETRIEVAL_REL_THR", 0.40))
+    1.0, max(0.0, _get_env_float("VSME_RETRIEVAL_REL_THR", 0.60))
 )
 
 # Optionnel : seuil absolu TF‑IDF du retrieval `count_refine`.
@@ -37,7 +37,7 @@ VSME_RETRIEVAL_REL_THR = min(
 # Objectif : éviter de conserver des pages avec un score très faible (signal pauvre),
 # même si elles passent le seuil relatif.
 # Intervalle attendu : abs_thr >= 0.0
-VSME_RETRIEVAL_ABS_THR = max(0.0, _get_env_float("VSME_RETRIEVAL_ABS_THR", 0.01))
+VSME_RETRIEVAL_ABS_THR = max(0.0, _get_env_float("VSME_RETRIEVAL_ABS_THR", 0.02))
 
 
 @dataclass
