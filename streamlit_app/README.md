@@ -15,7 +15,7 @@ pip install .
 pip install ".[streamlit]"
 ```
 
-2) Définir la config (clé Scaleway, etc.) dans [`.env`](../.env:1).
+2) Définir la config (clé Scaleway, etc.) dans [`.env`](../.env.example).
 
 3) Démarrer :
 
