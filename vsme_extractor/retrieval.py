@@ -7,7 +7,7 @@ import re
 import unicodedata
 from typing import Callable, List, Literal, Sequence
 
-from .config import VSME_RETRIEVAL_REL_THR
+from .config import VSME_RETRIEVAL_ABS_THR, VSME_RETRIEVAL_REL_THR
 
 
 logger = logging.getLogger(__name__)
@@ -298,12 +298,14 @@ def find_relevant_snippets(
             if min_relative_score is None
             else float(min_relative_score)
         )
+        abs_thr = float(VSME_RETRIEVAL_ABS_THR)
         max_score = float(scores[0][0])
-        filtered = (
+        filtered_rel = (
             [t for t in scores if (float(t[0]) / max_score) >= rel_thr]
             if max_score > 0
             else []
         )
+        filtered = [t for t in filtered_rel if float(t[0]) >= abs_thr]
         if not filtered:
             return []
         return [s[2] for s in filtered[:k]]
@@ -409,13 +411,19 @@ def find_relevant_snippets_with_details(
             else float(min_relative_score)
         )
         max_score = float(tfidf_scores[0][0])
-        thresholds = {"rel_thr": float(rel_thr), "best_score": float(max_score)}
+        abs_thr = float(VSME_RETRIEVAL_ABS_THR)
+        thresholds = {
+            "rel_thr": float(rel_thr),
+            "abs_thr": float(abs_thr),
+            "best_score": float(max_score),
+        }
 
-        filtered = (
+        filtered_rel = (
             [t for t in tfidf_scores if (float(t[0]) / max_score) >= rel_thr]
             if max_score > 0
             else []
         )
+        filtered = [t for t in filtered_rel if float(t[0]) >= abs_thr]
         kept_tfidf: list[tuple[float, int, str]] = filtered[:k]
         kept_idx = {i for _, i, _ in kept_tfidf}
 
@@ -449,6 +457,7 @@ def find_relevant_snippets_with_details(
             )
 
         if not kept_tfidf:
+            # Either no page passed rel_thr, or they passed rel_thr but were filtered out by abs_thr.
             details["gate"] = {"reason": "no_page_passed_thresholds"}
             return [], details
 

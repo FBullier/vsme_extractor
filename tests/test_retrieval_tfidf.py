@@ -29,4 +29,7 @@ def test_tfidf_ngram_souple_rel40_has_rel40_and_no_abs_thr() -> None:
     rel_thr = thresholds.get("rel_thr")
     assert isinstance(rel_thr, float)
     assert 0.0 <= rel_thr <= 1.0
-    assert "abs_thr" not in thresholds
+    # `abs_thr` default is 0.01 but can be overridden by env (VSME_RETRIEVAL_ABS_THR).
+    abs_thr = thresholds.get("abs_thr")
+    assert isinstance(abs_thr, float)
+    assert abs_thr >= 0.0
