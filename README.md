@@ -415,7 +415,7 @@ Note : le calcul de complétude accepte aussi `.vsme.json` générés par la CLI
 
 ### App Streamlit (optionnelle)
 
-Une mini-app Streamlit est disponible dans [`streamlit_app/`](streamlit_app/README.md:1).
+Une mini-app Streamlit est disponible dans [`streamlit_app/README.md`](streamlit_app/README.md:1).
 Elle permet d'uploader un PDF, de choisir des indicateurs (`code_vsme`) et de lancer l'extraction.
 
 ### Qualité / checks (optionnel)
